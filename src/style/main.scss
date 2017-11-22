@@ -1,0 +1,270 @@
+@import "variables";
+@import "functions";
+@import "mixins";
+@import "fonts";
+
+html, body {
+  padding: 0;
+  margin: 0;
+  height: 100%;
+  font-family: 'Saira Condensed', sans-serif;
+  color: #000;
+  overflow: hidden;
+}
+
+label {
+  font-weight: 500;
+}
+
+$i: 0;
+@while $i <= 100 {
+  .m-t-#{$i} {
+    margin-top: #{$i}px;
+  }
+  .m-b-#{$i} {
+    margin-bottom: #{$i}px;
+  }
+  .m-r-#{$i} {
+    margin-right: #{$i}px;
+  }
+  .m-l-#{$i} {
+    margin-left: #{$i}px;
+  }
+  $i: $i+2;
+}
+
+.block {
+  display: block;
+}
+
+.inline-block {
+  display: inline-block;
+}
+
+.text-colored {
+  color: $main_c;
+}
+
+.modal-header {
+  border-bottom: 1px solid $main_c_t50;
+}
+
+.modal-footer {
+  border-top: 1px solid $main_c_t50;
+  text-align: left;
+}
+
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.amount-crypto,
+.type-crypto,
+.address-to-send {
+  font-weight: 700;
+}
+
+.button {
+  background-color: $main_c;
+  color: #fff;
+  font-size: 26px;
+  padding: 1.3rem 0;
+  text-transform: uppercase;
+  border: transparent;
+  width: 240px;
+  outline: none;
+  @include fade();
+  &.big {
+    font-size: 49px;
+    line-height: 49px;
+  }
+  &.send-rebl-eth {
+    margin-left: 46px;
+    margin-top: 6px;
+  }
+  &:disabled {
+    background-color: #ccc;
+    &:hover {
+      color: #fff;
+      cursor: not-allowed;
+    }
+  }
+}
+
+.input {
+  @include placeHolder($main_c);
+  -webkit-border-radius: 0;
+  -moz-border-radius: 0;
+  border-radius: 0;
+}
+
+.bordered {
+  border: 1px solid $main_c_t50;
+  font-size: 34px;
+  text-align: center;
+  text-transform: uppercase;
+  color: $main_c;
+}
+
+header {
+  background: url("../images/bg.png") left bottom no-repeat;
+  background-size: cover;
+}
+.about {
+  position: absolute;
+  text-transform: uppercase;
+  cursor: pointer;
+  &.top {
+    display: none;
+    top: 10px;
+    right: 20px;
+    color: #fff;
+    font-size: 16px;
+
+  }
+  &.bottom {
+    bottom: 10px;
+    right: 25px;
+    font-size: 2rem;
+    color: #000;
+  }
+  &.toggled {
+    bottom: -310px;
+    margin-bottom: 20px;
+  }
+}
+
+.div-center {
+  position: relative;
+  margin: 0 auto;
+}
+
+main {
+  position: relative;
+  top: rem(-100);
+  font-size: 20px;
+  text-transform: uppercase;
+  padding-bottom: 20px;
+  overflow: hidden;
+  .select-open-method {
+    .button {
+      &:nth-of-type(2) {
+        margin: 0 5rem;
+      }
+    }
+  }
+  .open-key-store {
+    background: none;
+    text-transform: uppercase;
+    border: 1px solid $main_c_t50;
+    margin-left: 10px;
+    padding-right: 50px;
+  }
+  .open-key-store-label {
+    margin-left: 13px;
+  }
+  .open-wallet {
+    margin-top: 10px;
+    padding-right: 8.5rem;
+    padding-left: 8.5rem;
+    position: relative;
+  }
+  .nav {
+    > li {
+      > a {
+        padding: 2px 55px 4px 55px;
+        background-color: $main_c;
+      }
+    }
+  }
+  .nav-tabs {
+    border-bottom: 0;
+    position: relative;
+    left: 46px;
+    > li {
+      > a {
+        -webkit-border-radius: 0;
+        -moz-border-radius: 0;
+        border-radius: 0;
+        margin-right: 0;
+        border: transparent;
+        color: #000;
+        &:hover {
+          background-color: #fff;
+        }
+      }
+      &.active {
+        > {
+          a {
+            color: #000;
+            border: transparent;
+            &:focus,
+            &:hover {
+              color: #000;
+              border: transparent;
+            }
+            &.back-send {
+              cursor: pointer;
+            }
+          }
+        }
+      }
+    }
+  }
+  .send-receive-tabs-content {
+    span {
+      &.bordered {
+        display: inline-block;
+        padding: 1rem 0;
+        width: 75%;
+      }
+      &.info {
+        display: block;
+        font-size: 16px;
+        margin: 5px 0;
+      }
+    }
+    .button {
+      width: 75%;
+    }
+  }
+  .walletInput {
+    .div-center {
+      width: 590px;
+    }
+    .input {
+      padding: 3rem;
+    }
+  }
+  .send-crypto {
+    .input-group {
+      display: block;
+      width: 92%;
+      margin: 0 auto;
+      .input {
+        &.bordered {
+          padding: 2.6rem 0;
+          width: 75%;
+        }
+      }
+      .input-group-addon {
+        font-size: 26px;
+        border-radius: 0;
+        background-color: $main_c;
+        border: transparent;
+        color: #fff;
+        padding: 1.4rem 0;
+      }
+    }
+    .help-block {
+      width: 92%;
+      margin: 0 auto;
+    }
+  }
+  .portfolio {
+    font-size: 16px;
+    margin-top: 10px;
+  }
+}

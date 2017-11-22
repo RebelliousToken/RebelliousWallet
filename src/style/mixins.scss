@@ -1,0 +1,101 @@
+
+// prefix declarations
+@mixin prefixed($property, $value) {
+  @if $webkit == true {
+    -webkit-#{$property}: #{$value};
+  }
+
+  @if $moz == true {
+    -moz-#{$property}: #{$value};
+  }
+
+  @if $ms == true {
+    -ms-#{$property}: #{$value};
+  }
+
+  @if $o == true {
+    -o-#{$property}: #{$value};
+  }
+
+  #{$property}: #{$value};
+}
+
+// prefix keyframes
+@mixin keyframes($name) {
+  @if $webkit == true {
+    @-webkit-keyframes #{$name} {
+      @content;
+    }
+  }
+
+  @if $moz == true {
+    @-moz-keyframes #{$name} {
+      @content;
+    }
+  }
+
+  @if $ms == true {
+    @-ms-keyframes #{$name} {
+      @content;
+    }
+  }
+
+  @if $o == true {
+    @-o-keyframes #{$name} {
+      @content;
+    }
+  }
+
+  @keyframes #{$name} {
+    @content;
+  }
+}
+
+@mixin hardwareAccel() {
+  // Improve performance on mobile/tablet devices
+  // Perspective reduces blurryness of text in Chrome
+  @include prefixed(transform, perspective(1px) translateZ(0));
+}
+
+@mixin improveAntiAlias() {
+  // Improve aliasing on mobile/tablet devices
+  box-shadow: 0 0 1px rgba(0, 0, 0, 0);
+}
+
+@mixin forceBlockLevel() {
+  // Transforms need to be block-level to work
+  display: inline-block;
+  vertical-align: middle;
+}
+
+@mixin hacks() {
+  @include forceBlockLevel();
+  @include hardwareAccel();
+  @include improveAntiAlias();
+}
+
+/* Fade */
+@mixin fade {
+  @include hacks();
+  overflow: hidden;
+  @include prefixed(transition-duration, $mediumDuration);
+  @include prefixed(transition-property, "color, background-color");
+
+  &:hover,
+  &:focus,
+  &:active {
+    background-color: $activeColor;
+    color: $main_c;
+  }
+}
+
+@mixin placeHolder($color) {
+  &::-webkit-input-placeholder {color:$color;}
+  &::-moz-placeholder          {color:$color;}/* Firefox 19+ */
+  &:-moz-placeholder           {color:$color;}/* Firefox 18- */
+  &:-ms-input-placeholder      {color:$color;}
+  &:focus::-webkit-input-placeholder { color:transparent; }
+  &:focus:-moz-placeholder { color:transparent; } /* FF 4-18 */
+  &:focus::-moz-placeholder { color:transparent; } /* FF 19+ */
+  &:focus:-ms-input-placeholder { color:transparent; } /* IE 10+ */
+}

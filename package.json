@@ -1,0 +1,87 @@
+{
+  "name": "rebl-wallet",
+  "version": "0.0.1",
+  "description": "An Ethereum wallet for Rebellious token",
+  "author": "Rebellious",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron-forge start",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder",
+    "dev": "ELECTRON_ENABLE_LOGGING=1 electron-forge start",
+    "package": "electron-forge package",
+    "make": "electron-forge make"
+  },
+  "build": {
+    "appId": "com.reblwallet",
+    "productName": "Rebellious Wallet",
+    "mac": {
+      "category": "your.app.category.type"
+    },
+    "linux": {
+      "target": [
+        "deb"
+      ]
+    },
+    "win": {}
+  },
+  "repository": "https://github.com/electron/electron-quick-start",
+  "keywords": [
+    "rebl",
+    "rebellious",
+    "rebl-wallet"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "babel-plugin-transform-async-to-generator": "^6.24.1",
+    "babel-preset-env": "^1.6.1",
+    "babel-preset-react": "^6.24.1",
+    "electron-forge": "^4.1.3",
+    "electron-prebuilt-compile": "1.7.8",
+    "electron-rebuild": "^1.6.0"
+  },
+  "dependencies": {
+    "bluebird": "^3.5.1",
+    "bootstrap": "^4.0.0-beta.2",
+    "clipboardy": "^1.2.1",
+    "electron-compile": "^6.4.2",
+    "electron-log": "^2.2.11",
+    "electron-squirrel-startup": "^1.0.0",
+    "ethereumjs-tx": "^1.3.3",
+    "web3": "^1.0.0-beta.24"
+  },
+  "config": {
+    "forge": {
+      "make_targets": {
+        "win32": [
+          "squirrel"
+        ],
+        "darwin": [
+          "zip"
+        ],
+        "linux": [
+          "deb",
+          "rpm"
+        ]
+      },
+      "electronPackagerConfig": {
+        "icon": "src/build/icon.ico"
+      },
+      "electronWinstallerConfig": {
+        "name": "rebl",
+        "iconUrl": "https://rebellious.io/favicon.ico",
+        "setupIcon": "src/build/icon.ico",
+        "noMsi": true
+      },
+      "electronInstallerDebian": {},
+      "electronInstallerRedhat": {},
+      "github_repository": {
+        "owner": "",
+        "name": ""
+      },
+      "windowsStoreConfig": {
+        "name": "rebl"
+      }
+    }
+  }
+}

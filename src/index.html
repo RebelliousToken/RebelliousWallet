@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <title>REBL Wallet</title>
+  <!-- Latest compiled and minified CSS -->
+  <link rel="stylesheet" href="style/bootstrap.min.css">
+  <link rel="stylesheet" href="style/main.scss">
+</head>
+
+<body>
+
+<header class="container-fluid">
+  <div class="row">
+    <div class="col-md-12 text-center">
+      <img src="images/logo.png" width="100%">
+      <span class="about top" data-toggle="modal" data-target="#aboutmodal">About the REBL wallet v0.0.1</span>
+    </div>
+  </div>
+</header>
+<main class="container-fluid">
+  <div class="row select-open-method">
+    <div class="col-md-12 text-center">
+      <button class="button" onclick="UseKeystore();">Use Keystore JSON</button>
+      <button class="button" onclick="UsePrivateKey();">Use Private Key</button>
+      <button class="button" onclick="OpenMyEtherWallet();">Create New Wallet</button>
+    </div>
+  </div>
+
+  <div class="row hidden send-receive-tabs">
+    <div class="col-md-12">
+      <ul class="nav nav-tabs m-l-35">
+        <li class="active"><a data-toggle="tab" href="#send" onclick="goBack(this);">Send</a></li>
+        <li><a data-toggle="tab" href="#receive" onclick="restoreSend(this);">Receive</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="row hidden send-receive-tabs-content">
+    <div class="tab-content">
+      <div id="send" class="tab-pane fade in active">
+        <div class="col-md-4 text-center">
+          <h2>
+            REBL
+          </h2>
+          <span id="reblbal" class="bordered">0.0000</span>
+          <span class="info">US DOLLARS: $<span id="portfolioRebl">0.00</span></span>
+          <button type="button" class="button" id="send-rebl-tokens" onclick="UpdateTokenFeeETH();showSend('rebl');">
+            Send REBL
+          </button>
+        </div>
+        <div class="col-md-4 text-center">
+          <h2>
+            REWARD*
+          </h2>
+          <span id="reward" class="bordered">0.00000000</span>
+          <span class="m-t-32 block"></span>
+          <button type="button" class="button big" id="collect-rewards" onclick="collectRewards();" disabled>
+            Collect Reward
+          </button>
+          <span class="info">
+            max reward reached in 30 days
+          </span>
+        </div>
+        <div class="col-md-4 text-center">
+          <h2>
+            ETH
+          </h2>
+          <span id="ethbal" class="bordered">0.0000</span>
+          <span class="info">US DOLLARS: $<span id="portfolioEth">0.00</span></span>
+          <button type="button" class="button" onclick="UpdateAvailableETH();showSend('eth');">
+            Send ETH
+          </button>
+        </div>
+        <br>
+        <div class="col-md-12">
+          <span class="pull-left portfolio">
+            *expected reward in rebl. gas cost excluded
+          </span>
+          <span class="portfolio pull-right">
+            TOTAL value (rebl+eth) reward excluded us dollars: $<span id="portfolioTotal">0.00</span>
+          </span>
+        </div>
+      </div>
+      <div id="receive" class="tab-pane fade text-center">
+        <h2>your rebl address</h2>
+        <span class="myaddress bordered" onclick="CopyAddress();">0x</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="row hidden send-rebl-wrapper send-crypto">
+    <div class="col-md-12">
+      <h2 class="text-center">
+        send rebl
+      </h2>
+      <div class="form-group m-l-35">
+        <form id="send-rebl">
+          <div class="input-group">
+            <input type="text" id="send_to_token" name="send_to_token" class="form-control input bordered"
+                 aria-label="Amount (to the nearest dollar)"
+                 placeholder="0x0000000000000000000000000000000000000000"
+                 onkeyup="GetTokenGas();"
+            >
+            <span class="input-group-addon">Address</span>
+            <p class="error-placement"></p>
+          </div>
+          <div class="input-group">
+            <input type="number" min="0" id="send_amount_token"
+                 name="send_amount_token" class="form-control input bordered"
+                 aria-label="Amount (to the nearest dollar)"
+                 placeholder="0.0" onkeyup="CheckTokenAvailable();GetTokenGas();">
+            <span class="input-group-addon">REBL</span>
+            <p class="error-placement"></p>
+          </div>
+          <br>
+          <p class="help-block">
+            <u class="reblspend">0.0</u> REBL Available |
+            <u class="ethavailable">0.0</u> ETH Available |
+            Gas Limit: <u class="rebl-gas-limit">0</u> |
+            Gas price: <u class="rebl-gas-price">0</u> |
+            Estimated fee: <u class="rebl-estimated-fee">(please, enter address and amount to estimate fee)</u>
+          </p>
+          <button type="submit" id="sendtokenbutton" class="button send-rebl-eth">Send</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="row hidden send-eth-wrapper send-crypto">
+    <div class="col-md-12">
+      <h2 class="text-center">
+        send eth
+      </h2>
+      <div class="form-group m-l-35">
+        <form id="send-eth">
+          <div class="input-group">
+            <input type="text" id="send_ether_to" name="send_ether_to" class="form-control input bordered"
+                 aria-label="Amount (to the nearest dollar)"
+                 placeholder="0x0000000000000000000000000000000000000000"
+                 onkeyup="GetEthGas();"
+            >
+            <span class="input-group-addon">Address</span>
+            <p class="error-placement"></p>
+          </div>
+
+          <div class="input-group">
+            <input type="number" min="0" id="send_ether_amount" name="send_ether_amount" class="form-control input bordered"
+                 aria-label="Amount (to the nearest dollar)"
+                 placeholder="0.0" onkeyup="CheckETHAvailable();GetEthGas();">
+            <span class="input-group-addon">ETH</span>
+          </div>
+          <br>
+          <p class="help-block">
+            <u class="ethspend">0.0</u> ETH Available |
+            Gas Limit: <u class="eth-gas-limit">0</u> |
+            Gas price: <u class="eth-gas-price">0</u> |
+            Estimated fee: <u class="eth-estimated-fee">(please, enter address and amount to estimate fee)</u>
+          </p>
+          <button type="submit" id="sendethbutton" class="button send-rebl-eth">Send</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="walletInput col-md-12">
+    <div class="div-center">
+      <div id="keystoreupload" class="hidden">
+        <div class="form-group">
+          <label for="open-key-store" class="open-key-store-label">Keystore JSON File:</label>
+          <button class="open-key-store" id="open-key-store" onclick="OpenKeystoreFile();">Open Keystore File</button>
+        </div>
+        <div class="form-group text-center">
+          <label for="keystorewalletpass" class="m-t-20">Wallet Password</label>
+          <input type="password" class="form-control input bordered" id="keystorewalletpass" placeholder="Ethereum Wallet Keystore Password">
+        </div>
+        <div class="text-center">
+          <button type="submit" class="button open-wallet" id="keystorebtn" onclick="UnlockWalletKeystore();">Open</button>
+          <p class="errorInfo text-info" id="keystorejsonerror">Incorrect Password for Keystore Wallet</p>
+        </div>
+      </div>
+
+      <div id="privatekey" class="hidden">
+        <div class="form-group text-center">
+          <label for="privatepass" class="m-t-60">Wallet Private Key</label>
+          <input type="password" class="form-control input bordered" id="privatepass" placeholder="Ethereum Private Key">
+        </div>
+        <div class="text-center">
+          <button type="submit" class="button open-wallet" onclick="OpenPrivateKey();">Open</button> <p class="errorInfo text-info pull-right" id="privatekeyerror">Invalid Ethereum Wallet Private Key</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <link rel="stylesheet" href="main.css">
+
+  <script>
+    // You can also require other files to run in this process
+    require('./renderer.js')
+  </script>
+
+  <div class="modal fade" id="ethermodal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-footer">
+
+          <div class="btn-group pull-left" role="group">
+            <button type="button" class="btn btn-default">Gas Price: <input id="ethgasprice" type="number" value="21" style="width: 40px;" onchange="GetEthGas();" min="5" max="50"> gwei</button>
+            <button type="button" class="btn btn-default">Fee: <input id="ethtxfee" type="text" value="0.00044" readonly style="width: 75px;" min="5" max="50"> ETH</button>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="aboutmodal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h4 class="modal-title" id="myModalLabel">About REBL Wallet v0.0.1</h4>
+        </div>
+        <div class="modal-body text-center text-colored">
+          <p>
+            Rebellious Ethereum Wallet based on REBL ERC20 with stake feature
+          </p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="button pull-right" data-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="confirmTransaction" tabindex="-1" role="dialog" aria-labelledby="confirmTransaction">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h4 class="modal-title">Confirm transaction</h4>
+        </div>
+        <div class="modal-body text-center text-colored">
+          <p>
+            Are you sure you want to send
+            <span class="amount-crypto"></span>
+            <span class="type-crypto"></span> to
+            <span class="address-to-send"></span>
+          </p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="button" id="submit-transaction" data-dismiss="modal">Confirm</button>
+          <button type="button" class="button pull-right" data-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="trxsentModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h4 class="modal-title" id="myModalLabel">Transaction Sent</h4>
+        </div>
+        <div class="modal-body text-center">
+          You sent <u id="senttxamount">0.0233</u> <span id="txtype">ETH</span> to <b id="txtoaddress">0xB64ef51C888972c908CFacf59B47C1AfBC0Ab8aC</b>
+
+          <p class="txidLink text-primary" onclick="OpenEtherScan('0x31b2c588cbf74bec84491eb4ec8423cd13742f7d90315693771b6699c042eba5')">0x31b2c588cbf74bec84491eb4ec8423cd13742f7d90315693771b6699c042eba5</p>
+
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+</main>
+
+<footer>
+  <span class="about bottom" data-toggle="modal" data-target="#aboutmodal">About the REBL wallet v0.0.1</span>
+</footer>
+
+
+</body>
+
+<script>
+  if (typeof module === 'object') {
+    window.module = module;
+    module = undefined;
+  }
+</script>
+
+<script src="js/jquery.min.js"></script>
+<script src="js/jquery.validate.min.js"></script>
+<script src="js/bootstrap.min.js"></script>
+<script src="js/main.js"></script>
+
+</html>
