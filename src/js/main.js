@@ -1,12 +1,14 @@
 const {shell} = require('electron');
 const {dialog} = require('electron').remote;
-const clipboardy = require('clipboardy');
 let fs = require('fs');
 let config = require('./config');
 let Transaction = require('./js/transaction');
 let Web3 = require('web3');
-let web3 = new Web3(new Web3.providers.HttpProvider(config.networkProvider));
 let log = require('electron-log');
+let toastr = require('toastr');
+
+let currentProvider = 'infura';
+let web3 = new Web3(new Web3.providers.HttpProvider(config.networkProvider[currentProvider]));
 
 let myWallet;
 let contract = new web3.eth.Contract(config.tokenAbi, config.tokenAddress);
@@ -14,10 +16,16 @@ let transaction;
 
 let tokenBalance = 0;
 let ethBalance = 0;
-let version = "0.0.1";
+let version = "0.0.2";
 
 let reblUSD = 0;
 let etherUSD = 0;
+
+let transactionPrices = {
+  slowTransactionPrice: config.slowTransactionPriceDown,
+  normalTransactionPrice: config.normalTransactionPriceDown,
+  fastTransactionPrice: config.fastTransactionPriceDown
+};
 
 const defaultDecimals = 1000000000000000000;
 
@@ -30,6 +38,56 @@ let tokenRecipientAddressField = $('#send_to_token');
 let tokensAmountField = $('#send_amount_token');
 let ethRecipientAddressField = $('#send_ether_to');
 let ethAmountField = $('#send_ether_amount');
+
+toastr.options = {
+    "closeButton": true,
+    "debug": false,
+    "newestOnTop": false,
+    "progressBar": false,
+    "positionClass": "toast-top-left",
+    "preventDuplicates": false,
+    "onclick": null,
+    "showDuration": "300",
+    "hideDuration": "1000",
+    "timeOut": "360000",
+    "extendedTimeOut": "1000",
+    "showEasing": "swing",
+    "hideEasing": "linear",
+    "showMethod": "fadeIn",
+    "hideMethod": "fadeOut"
+};
+
+checkNet();
+updateTransactionPrices();
+
+function checkNet() {
+  web3.eth.getProtocolVersion().catch(e => {
+    handleError(e, {
+      'function': checkNet,
+      'from': 'check'
+    })
+  });
+}
+
+function handleError(e, action = false) {
+  log.error(e, action['from']);
+  if(currentProvider === 'infura' && action['function']) {
+    currentProvider = 'giveth';
+    web3.setProvider(config.networkProvider[currentProvider]);
+    contract = new web3.eth.Contract(config.tokenAbi, config.tokenAddress);
+    action['args'] = action['args'] ? action['args'] : [];
+    action['function'](...action['args']);
+  }
+  else if (e == 'Error: Invalid JSON RPC response: ""' || e == "Error: Couldn't decode uint256 from ABI: 0x") {
+    toastr.error('Requested API server currently not responding. Please try again later.');
+  }
+  else if (e == 'Error: Returned error: insufficient funds for gas * price + value null') {
+    toastr.error("Your wallet's ETH balance is not enough to cover the gas cost. Please deposit some ETH into your wallet.");
+  }
+  else {
+    toastr.error(e);
+  }
+}
 
 function OpenEtherScan(txid) {
   shell.openExternal('https://etherscan.io/tx/'+txid)
@@ -52,16 +110,20 @@ function OpenMyEtherWallet() {
 }
 
 function ReblPrice() {
-  let api = "https://api.coinmarketcap.com/v1/ticker/rebl/";
-  $.get(api, function(data, status){
-     reblUSD = parseFloat(data[0]['price_usd']);
+  let api = "https://api.coinmarketcap.com/v1/ticker/rebellious/";
+  $.get(api, (data, status) => {
+    if(status === 'success') {
+      reblUSD = parseFloat(data[0]['price_usd']);
+    }
   });
 }
 
 function EtherPrice() {
   let api = "https://api.coinmarketcap.com/v1/ticker/ethereum/";
-  $.get(api, function(data, status){
-     etherUSD = parseFloat(data[0]['price_usd']);
+  $.get(api, (data, status) => {
+    if(status === 'success') {
+      etherUSD = parseFloat(data[0]['price_usd']);
+    }
   });
 }
 
@@ -73,12 +135,12 @@ function UpdatePricing() {
 }
 
 function UpdatePortfolio() {
-  setTimeout(function() {
-    let totalRebl = tokenBalance * reblUSD;
+  setTimeout(() => {
+    let totalRebl = tokenBalance * reblUSD / defaultDecimals;
     let totalEth = ethBalance * etherUSD;
     let totalPort = totalRebl + totalEth;
-    $('#portReblUSD').html("($"+reblUSD+")");
-    $('#portEthUSD').html("($"+etherUSD+")");
+    $('#portReblUSD').html("($"+reblUSD.toFixed(2)+")");
+    $('#portEthUSD').html("($"+etherUSD.toFixed(2)+")");
     $('#portfolioRebl').html(totalRebl.toFixed(2));
     $('#portfolioEth').html(totalEth.toFixed(2));
     $('#portfolioTotal').html(totalPort.toFixed(2));
@@ -90,7 +152,7 @@ activateValidators();
 
 function CheckForUpdates() {
   let versionFile = "https://raw.githubusercontent.com/hunterlong/storj-wallet/master/VERSION";
-  $.get(versionFile, function(data, status){
+  $.get(versionFile, (data, status) => {
     let verCheck = data.replace(/^\s+|\s+$/g, '');
     if (version !== verCheck) {
       alert("There's a new Update for Rebellious Wallet! New Version: "+data);
@@ -122,23 +184,25 @@ function CheckTokenAvailable() {
   }
 }
 
-setInterval(function() {
+setInterval(() => {
   if (myWallet) {
     updateBalance();
   }
 }, 5000);
 
-setInterval(function() {
+setInterval(() => {
   if (myWallet) {
     UpdatePortfolio();
   }
 }, 30000);
 
-setInterval(function() {
+setInterval(() => {
   if (myWallet) {
-    getReward();
+      getReward();
   }
 }, 300000);
+
+setInterval(updateTransactionPrices, 60000);
 
 function UseKeystore() {
   HideButtons();
@@ -156,8 +220,12 @@ function UseNewWallet() {
 }
 
 function CopyAddress() {
-  clipboardy.writeSync(myWallet.address);
-  alert("Address Copied: " + myWallet.address);
+  let $temp = $("<input>");
+  $("body").append($temp);
+  $temp.val(myWallet.address).select();
+  document.execCommand("copy");
+  $temp.remove();
+  toastr.info("Address Copied: " + myWallet.address, '', {timeOut: 5000});
 }
 
 function HideButtons() {
@@ -179,8 +247,10 @@ function OpenPrivateKey() {
       updateBalance();
       UpdatePortfolio();
     } catch (e) {
-      log.error(e);
-      alert(e);
+      handleError(e, {
+        'function': OpenPrivateKey,
+        'from': 'OpenPrivateKey'
+      });
       $("#privatekeyerror").show();
     }
   } else {
@@ -210,6 +280,11 @@ function updateBalance() {
     let split = ethValue.split(".");
     ethBalance = parseFloat(ethValue);
     messageEl.html(split[0] + ".<small>" + split[1] + "</small>");
+  }).catch(err => {
+    handleError(err, {
+      'function': updateBalance,
+      'from': 'updateBalance'
+    });
   });
 
   let contract = new web3.eth.Contract(config.tokenAbi, config.tokenAddress);
@@ -231,13 +306,18 @@ function updateBalance() {
     $('.reblspend').html(reblValue);
     messageEl.html(split[0] + ".<small>" + split[1] + "</small>");
 
+  }).catch(err => {
+    handleError(err, {
+      'function': updateBalance,
+      'from': 'updateBalance'
+    });
   });
 
 }
 
 let keyFile;
 function OpenKeystoreFile() {
-  dialog.showOpenDialog(function(fileNames) {
+  dialog.showOpenDialog(fileNames => {
     if (fileNames === undefined) return;
     keyFile = fileNames[0];
     $('.open-key-store').css({color:'#fff', backgroundColor: 'rgb(0, 171,178)'});
@@ -245,7 +325,8 @@ function OpenKeystoreFile() {
 }
 
 function SuccessAccess() {
-  transaction = new Transaction(myWallet);
+  localStorage.clear();
+  transaction = new Transaction(myWallet, web3, contract);
   $('.select-open-method').hide();
   $('.walletInput').hide();
   $('.send-receive-tabs').toggleClass('hidden');
@@ -263,16 +344,14 @@ function SuccessAccess() {
 function GetEthGas() {
   let to = ethRecipientAddressField.val();
   let amount = ethAmountField.val();
+  $('.eth-gas-limit').parent().parent().find('.init-slider').slider('disable');
   if(to.match(/^(0x)?[0-9A-fa-f]{40}$/) && amount !== '') {
-    transaction.estimateFeeForEth(to, amount).then(result => {
-      let gasPrice = web3.utils.fromWei(web3.utils.hexToNumber(result.gasPrice));
-      $('.eth-gas-limit').text(result.gas);
-      $('.eth-gas-price').text(gasPrice);
-      $('.eth-estimated-fee').text((result.gas * gasPrice).toFixed(10) + ' ETH');
-    }).catch(err => {
-      log.error(err);
-      alert(err);
-    });
+  let gasPrice = transactionPrices.normalTransactionPrice;
+  $('.eth-gas-limit').text(config.gasLimitFor['eth']);
+  $('.eth-gas-price').text(gasPrice);
+  $('.eth-estimated-fee').text((config.gasLimitFor['eth'] * gasPrice).toFixed(10) + ' ETH');
+  $('.eth-gas-limit').parent().parent().find('.init-slider').slider( 'value', gasPrice );
+  $('.eth-gas-limit').parent().parent().find('.init-slider').slider( 'enable' );
   }
   return false;
 }
@@ -283,16 +362,14 @@ function GetEthGas() {
 function GetTokenGas() {
   let to = tokenRecipientAddressField.val();
   let amount = tokensAmountField.val();
+  $('.rebl-gas-limit').parent().parent().find('.init-slider').slider('disable');
   if(to.match(/^(0x)?[0-9A-fa-f]{40}$/) && amount !== '') {
-    transaction.estimateFeeForTokens(to, amount).then(result => {
-      let gasPrice = web3.utils.fromWei(web3.utils.hexToNumber(result.gasPrice));
-      $('.rebl-gas-limit').text(result.gas);
-      $('.rebl-gas-price').text(gasPrice);
-      $('.rebl-estimated-fee').text((result.gas * gasPrice).toFixed(10) + ' ETH');
-    }).catch(err => {
-      log.error(err);
-      alert(err);
-    });
+  let gasPrice = transactionPrices.normalTransactionPrice;
+  $('.rebl-gas-limit').text(config.gasLimitFor['rebl']);
+  $('.rebl-gas-price').text(gasPrice);
+  $('.rebl-estimated-fee').text((config.gasLimitFor['rebl'] * gasPrice).toFixed(10) + ' ETH');
+  $('.rebl-gas-limit').parent().parent().find('.init-slider').slider( 'value', gasPrice );
+  $('.rebl-gas-limit').parent().parent().find('.init-slider').slider( 'enable' );
   }
   return false;
 }
@@ -312,7 +389,7 @@ function UnlockWalletKeystore() {
       UpdatePortfolio();
       keyStoreButton.html('Decrypting...');
     } catch (e) {
-      keyStoreJsonError.html(e);
+      keyStoreJsonError.html('Please select correct keystore file');
       keyStoreJsonError.show();
       keyStoreButton.prop('disabled', false);
       keyStoreButton.html('Open');
@@ -338,18 +415,18 @@ function ConfirmButton(elem) {
   $(elem).attr('class', 'btn btn-success')
 }
 
-function SendEthereum(callback) {
+function SendEthereum(gasPrice = config.defaultGasPrice) {
   let to = ethRecipientAddressField.val();
   let amount = ethAmountField.val();
 
   disableSendEthButton('Please wait');
 
   if (amount !== '' && parseFloat(amount) <= ethBalance) {
-    transaction.sendEther(to, amount).then(res => {
+    transaction.sendEther(to, amount, gasPrice).then(transactionHash => {
       enableSendEthButton();
       $('#ethermodal').modal('hide');
-      txIdLink.html(res.transactionHash);
-      txIdLink.attr('onclick', "OpenEtherScan('"+res.transactionHash+"')");
+      txIdLink.html(transactionHash);
+      txIdLink.attr('onclick', "OpenEtherScan('"+transactionHash+"')");
       $('#senttxamount').html(amount);
       $('#txtoaddress').html(to);
       $('#txtype').html('ETH');
@@ -358,8 +435,9 @@ function SendEthereum(callback) {
       ethRecipientAddressField.val('');
       ethAmountField.val('');
     }).catch(e => {
-      log.error(e);
-      alert(e);
+      handleError(e, {
+        'from': 'SendEthereum'
+      });
       enableSendEthButton();
     });
   }
@@ -395,7 +473,6 @@ function goBack(self) {
 
 function restoreSend(self) {
   if($(self).parent().siblings().find('a').hasClass('back-send')) {
-    // alert();
     goBack($(self).parent().siblings().find('a'));
   }
 }
@@ -435,6 +512,7 @@ function activateValidators() {
   let confirmTransactionModal = $('#confirmTransaction');
   $('#send-rebl').on('submit', (e) => {
     e.preventDefault();
+    confirmTransactionModal.find('#submit-transaction').off('click');
   }).validate({
     errorPlacement: (error, element) => {
       error.appendTo(element.siblings('.error-placement'));
@@ -455,13 +533,14 @@ function activateValidators() {
       confirmTransactionModal.find('.address-to-send').text(tokenRecipientAddressField.val());
       confirmTransactionModal.modal('show');
       confirmTransactionModal.find('#submit-transaction').on('click', () => {
-        SendToken();
+        SendToken($('#send-rebl').find('.rebl-slider').slider('value'));
         confirmTransactionModal.find('#submit-transaction').off('click');
       });
     }
   });
   $('#send-eth').on('submit', (e) => {
     e.preventDefault();
+    confirmTransactionModal.find('#submit-transaction').off('click');
   }).validate({
     errorPlacement: (error, element) => {
       error.appendTo(element.siblings('.error-placement'));
@@ -482,7 +561,7 @@ function activateValidators() {
       confirmTransactionModal.find('.address-to-send').text(ethRecipientAddressField.val());
       confirmTransactionModal.modal('show');
       confirmTransactionModal.find('#submit-transaction').on('click', () => {
-        SendEthereum();
+        SendEthereum($('#send-eth').find('.rebl-slider').slider('value'));
         confirmTransactionModal.find('#submit-transaction').off('click');
       });
     }
@@ -504,20 +583,28 @@ function getReward() {
       );
 
       $('#reward').text(reward);
+      getRewardTime();
       if(parseFloat(reward) > 0) {
         enableCollectRewardsButton();
       }
+      else {
+        $('.reward-info').show();
+      }
     }).catch(err => {
-      log.error(err);
-      alert(err);
+      handleError(err, {
+        'function': getReward,
+        'from': 'getReward'
+      });
     });
   }).catch(err => {
-    log.error(err);
-    alert(err);
+    handleError(err, {
+      'function': getReward,
+      'from': 'getReward'
+    });
   });
 }
 
-function SendToken(callback) {
+function SendToken(gasPrice = config.defaultGasPrice) {
   let to = tokenRecipientAddressField.val();
   let amount = tokensAmountField.val() * defaultDecimals;
 
@@ -525,12 +612,12 @@ function SendToken(callback) {
 
   if (amount !== '' && parseFloat(amount) <= tokenBalance) {
 
-    transaction.sendTokens(to, scientificToDecimal(amount)).then(res => {
+    transaction.sendTokens(to, scientificToDecimal(amount), gasPrice).then(transactionHash => {
       $('#reblmodal').modal('hide');
       enableSendReblButton();
       getReward();
-      txIdLink.html(res.transactionHash);
-      txIdLink.attr('onclick', "OpenEtherScan('"+res.transactionHash+"')");
+      txIdLink.html(transactionHash);
+      txIdLink.attr('onclick', "OpenEtherScan('"+transactionHash+"')");
       $('#senttxamount').html(amount / defaultDecimals);
       $('#txtoaddress').html(to);
       $('#txtype').html('REBL');
@@ -540,8 +627,9 @@ function SendToken(callback) {
       tokensAmountField.val('');
     })
     .catch(err => {
-      log.error(err);
-      alert(err);
+      handleError(err, {
+        'from': 'SendToken'
+      });
       enableSendReblButton();
     });
   }
@@ -572,16 +660,170 @@ function disableSendEthButton(text = 'Send') {
 }
 
 function collectRewards() {
-  disableCollectRewardsButton('Please wait');
-
-  transaction.mint().then(result => {
-    alert('Reward is successful');
-    getReward();
-    updateBalance();
-    disableCollectRewardsButton();
-  }).catch(err => {
-    enableCollectRewardsButton();
-    log.error('Collect reward failed: ' + err);
-    alert(err);
+  $('#submit-mint').off('click');
+  let slider = $('#mintModal').find('.init-slider');
+  slider.slider('disable');
+  $('#mintModal').modal('show');
+  slider.slider('value', transactionPrices.normalTransactionPrice);
+  slider.slider('enable');
+  $('#submit-mint').on('click', (e) => {
+    e.preventDefault();
+    disableCollectRewardsButton('Please wait');
+    transaction.mint(slider.slider('value')).then(transactionHash => {
+      txIdLink.html(transactionHash);
+      txIdLink.attr('onclick', "OpenEtherScan('"+transactionHash+"')");
+      $('#mintSuccessModal').modal('show');
+      getReward();
+      updateBalance();
+      disableCollectRewardsButton();
+      resetProgressbar();
+    }).catch(err => {
+      if (err == "Error: Returned error: insufficient funds for gas * price + value") {
+        err = "Your wallet's ETH balance is not enough to cover the gas cost. Please deposit some ETH into your wallet.";
+      }
+      else {
+        err = 'Collect reward failed: ' + err;
+      }
+      enableCollectRewardsButton();
+      handleError(err);
+    });
   });
 }
+
+async function getRewardTime() {
+  const maxRewardDays = 30;
+  let transferEvents = await contract.getPastEvents('Transfer', {
+    filter: {
+      from: myWallet.address
+    },
+    fromBlock: 0
+  });
+  let mintEvents = await contract.getPastEvents('Mint', {
+    filter: {
+        _address: myWallet.address
+    },
+    fromBlock: 0
+  });
+  let latestTransferBlock;
+  let latestMintBlock;
+  let maxBlockNumber;
+  let block;
+  let daysToMaxReward;
+  if(transferEvents.length && mintEvents.length) {
+    latestTransferBlock = transferEvents[transferEvents.length-1].blockNumber;
+    latestMintBlock = mintEvents[mintEvents.length-1].blockNumber;
+    maxBlockNumber = latestTransferBlock > latestMintBlock ? latestTransferBlock : latestMintBlock;
+  } else if(transferEvents.length && !mintEvents.length) {
+      maxBlockNumber = transferEvents[transferEvents.length-1].blockNumber;
+  } else if(!transferEvents.length && mintEvents.length) {
+      maxBlockNumber = mintEvents[mintEvents.length-1].blockNumber;
+  } else if(!transferEvents.length && !mintEvents.length) {
+    transferEvents = await contract.getPastEvents('Transfer', {
+      filter: {
+          to: myWallet.address
+      },
+      fromBlock: 0
+    });
+    if(transferEvents.length) {
+      maxBlockNumber = transferEvents[0].blockNumber;
+    } else {
+      return;
+    }
+  }
+  block = await web3.eth.getBlock(maxBlockNumber);
+  daysToMaxReward = (maxRewardDays - (((Date.now() / 1000) - (block.timestamp)) / 60 / 60 / 24)).toFixed(0);
+  if (daysToMaxReward < 0) {
+    daysToMaxReward = 0;
+  }
+  $('.reward-info').show();
+  $('#max-reward-days-count').text(daysToMaxReward);
+  $('#stake-days').text(maxRewardDays - daysToMaxReward);
+  fillProgressBar((1 - (daysToMaxReward / maxRewardDays)) * 100);
+}
+
+function fillProgressBar(maxWidth) {
+  let elem = document.getElementById('max-reward-days-bar');
+  let width = 0;
+  let id = setInterval(frame, 10);
+  function frame() {
+    if (width >= maxWidth) {
+      clearInterval(id);
+    } else {
+      width++;
+      elem.style.width = width + '%';
+    }
+  }
+}
+
+function resetProgressbar() {
+  fillProgressBar(1);
+  $('#max-reward-days-count').text(30);
+}
+
+function updateTransactionPrices() {
+  let api = 'https://ethgasstation.info/json/ethgasAPI.json';
+  $.get(api, (data, status) => {
+    if(status === 'success') {
+      transactionPrices = {
+        slowTransactionPrice: data.safeLow / 10,
+        normalTransactionPrice: data.average / 10,
+        fastTransactionPrice: data.fast / 10
+      }
+    }
+  });
+}
+
+function determineTransactionSpeed(gasPrice) {
+  if((gasPrice >= transactionPrices.slowTransactionPrice && gasPrice < transactionPrices.normalTransactionPrice) ||
+      gasPrice < transactionPrices.slowTransactionPrice) {
+    return 'slow';
+  }
+  if(gasPrice >= transactionPrices.normalTransactionPrice && gasPrice < transactionPrices.fastTransactionPrice) {
+    return 'normal';
+  }
+  if(gasPrice >= transactionPrices.fastTransactionPrice) {
+    return 'fast';
+  }
+}
+
+$(() => {
+  $('.init-slider').each((index, item) => {
+    let handle = $(item).find('.custom-handle');
+    let sliderType = $(item).data('slider-for');
+    $(item).slider({
+      classes: {
+        "ui-slider": "rebl-slider",
+        "ui-slider-handle": "rebl-slider-handle"
+      },
+      min: 1,
+      max: 99,
+      create: () => {
+        handle.text($( item ).slider("value"));
+      },
+      slide: (event, ui) => {
+        handle.text(ui.value);
+        let transactionSpeed = determineTransactionSpeed(ui.value);
+        $('.'+sliderType+'-gas-price').text(ui.value);
+        $('.'+sliderType+'-estimated-fee').text(+(web3.utils.fromWei(ui.value.toString(), 'gwei')*config.gasLimitFor[sliderType]).toFixed(6));
+        $('.'+sliderType+'-speed').removeClass((index, className) => {
+          return (className.match (/(^|\s)transaction-\S+/g) || []).join(' ');
+        }).addClass('transaction-'+transactionSpeed).text(transactionSpeed);
+      },
+      change: (event, ui) => {
+        handle.text(ui.value);
+        let transactionSpeed = determineTransactionSpeed(ui.value);
+        $('.'+sliderType+'-gas-price').text(ui.value);
+        $('.'+sliderType+'-estimated-fee').text(+(web3.utils.fromWei(ui.value.toString(), 'gwei')*config.gasLimitFor[sliderType]).toFixed(6));
+        $('.'+sliderType+'-speed').removeClass((index, className) => {
+          return (className.match (/(^|\s)transaction-\S+/g) || []).join(' ');
+        }).addClass('transaction-'+transactionSpeed).text(transactionSpeed);
+      }
+    });
+  });
+  $('#refresh').on('click', () => {
+    UpdatePricing();
+    UpdatePortfolio();
+    updateBalance();
+    getReward();
+  });
+});

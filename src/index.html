@@ -6,7 +6,9 @@
   <title>REBL Wallet</title>
   <!-- Latest compiled and minified CSS -->
   <link rel="stylesheet" href="style/bootstrap.min.css">
+  <link rel="stylesheet" href="style/jquery-ui.min.css">
   <link rel="stylesheet" href="style/main.scss">
+  <link rel="stylesheet" href="../node_modules/toastr/build/toastr.min.css">
 </head>
 
 <body>
@@ -15,7 +17,9 @@
   <div class="row">
     <div class="col-md-12 text-center">
       <img src="images/logo.png" width="100%">
-      <span class="about top" data-toggle="modal" data-target="#aboutmodal">About the REBL wallet v0.0.1</span>
+      <span class="about top link" data-toggle="modal" data-target="#aboutmodal">About the REBL wallet v0.0.2</span>
+      <span class="about top" id="refresh"><img src="images/refresh.png"></span>
+      <div class="drag-line"></div>
     </div>
   </div>
 </header>
@@ -55,12 +59,18 @@
           </h2>
           <span id="reward" class="bordered">0.00000000</span>
           <span class="m-t-32 block"></span>
-          <button type="button" class="button big" id="collect-rewards" onclick="collectRewards();" disabled>
+          <button type="button" class="button" id="collect-rewards" onclick="collectRewards();" disabled>
             Collect Reward
           </button>
-          <span class="info">
-            max reward reached in 30 days
-          </span>
+          <div class="reward-info">
+            <span class="info">
+              max reward reached in <span id="max-reward-days-count">30</span> days
+            </span>
+            <div class="reward-progress-bar">
+              <div id="max-reward-days-bar"></div>
+            </div>
+            <div>DAY <span id="stake-days">0</span> / 30</div>
+          </div>
         </div>
         <div class="col-md-4 text-center">
           <h2>
@@ -113,15 +123,26 @@
             <span class="input-group-addon">REBL</span>
             <p class="error-placement"></p>
           </div>
-          <br>
           <p class="help-block">
             <u class="reblspend">0.0</u> REBL Available |
             <u class="ethavailable">0.0</u> ETH Available |
-            Gas Limit: <u class="rebl-gas-limit">0</u> |
-            Gas price: <u class="rebl-gas-price">0</u> |
-            Estimated fee: <u class="rebl-estimated-fee">(please, enter address and amount to estimate fee)</u>
+            Gas Limit: <u class="rebl-gas-limit">0</u>
           </p>
-          <button type="submit" id="sendtokenbutton" class="button send-rebl-eth">Send</button>
+          <br>
+          <div class="slider-container">
+            <div class="init-slider" data-slider-for="rebl">
+              <div class="custom-handle ui-slider-handle"></div>
+            </div>
+            <button type="submit" id="sendtokenbutton" class="button send-rebl-eth">Send</button>
+          </div>
+          <p class="help-block gas-price m-t-14">
+            Gas price:
+          </p>
+          <p class="help-block gas-info m-t-14">
+            Speed: <span class="rebl-speed transaction-slow">SLOW</span> /
+            GWEI: <span class="rebl-gas-price">0</span> /
+            Max TX Fee: <span class="rebl-estimated-fee">0</span> ETH
+          </p>
         </form>
       </div>
     </div>
@@ -150,14 +171,25 @@
                  placeholder="0.0" onkeyup="CheckETHAvailable();GetEthGas();">
             <span class="input-group-addon">ETH</span>
           </div>
-          <br>
           <p class="help-block">
             <u class="ethspend">0.0</u> ETH Available |
-            Gas Limit: <u class="eth-gas-limit">0</u> |
-            Gas price: <u class="eth-gas-price">0</u> |
-            Estimated fee: <u class="eth-estimated-fee">(please, enter address and amount to estimate fee)</u>
+            Gas Limit: <u class="eth-gas-limit">0</u>
           </p>
-          <button type="submit" id="sendethbutton" class="button send-rebl-eth">Send</button>
+          <br>
+          <div class="slider-container">
+            <div class="init-slider" data-slider-for="eth">
+              <div class="custom-handle ui-slider-handle"></div>
+            </div>
+            <button type="submit" id="sendethbutton" class="button send-rebl-eth">Send</button>
+          </div>
+          <p class="help-block gas-price m-t-14">
+            Gas price:
+          </p>
+          <p class="help-block gas-info m-t-14">
+            Speed: <span class="eth-speed transaction-slow">SLOW</span> /
+            GWEI: <span class="eth-gas-price">0</span> /
+            Max TX Fee: <span class="eth-estimated-fee">0</span> ETH
+          </p>
         </form>
       </div>
     </div>
@@ -186,7 +218,8 @@
           <input type="password" class="form-control input bordered" id="privatepass" placeholder="Ethereum Private Key">
         </div>
         <div class="text-center">
-          <button type="submit" class="button open-wallet" onclick="OpenPrivateKey();">Open</button> <p class="errorInfo text-info pull-right" id="privatekeyerror">Invalid Ethereum Wallet Private Key</p>
+          <button type="submit" class="button open-wallet" onclick="OpenPrivateKey();">Open</button>
+          <p class="errorInfo text-info" id="privatekeyerror">Invalid Ethereum Wallet Private Key</p>
         </div>
       </div>
     </div>
@@ -205,8 +238,12 @@
         <div class="modal-footer">
 
           <div class="btn-group pull-left" role="group">
-            <button type="button" class="btn btn-default">Gas Price: <input id="ethgasprice" type="number" value="21" style="width: 40px;" onchange="GetEthGas();" min="5" max="50"> gwei</button>
-            <button type="button" class="btn btn-default">Fee: <input id="ethtxfee" type="text" value="0.00044" readonly style="width: 75px;" min="5" max="50"> ETH</button>
+            <button type="button" class="btn btn-default">
+              Gas Price: <input id="ethgasprice" type="number" value="21" style="width: 40px;" onchange="GetEthGas();" min="5" max="50"> gwei
+            </button>
+            <button type="button" class="btn btn-default">
+              Fee: <input id="ethtxfee" type="text" value="0.00044" readonly style="width: 75px;" min="5" max="50"> ETH
+            </button>
           </div>
 
         </div>
@@ -218,7 +255,7 @@
     <div class="modal-dialog" role="document">
       <div class="modal-content">
         <div class="modal-header">
-          <h4 class="modal-title" id="myModalLabel">About REBL Wallet v0.0.1</h4>
+          <h4 class="modal-title" id="myModalLabel">About REBL Wallet v0.0.2</h4>
         </div>
         <div class="modal-body text-center text-colored">
           <p>
@@ -262,12 +299,58 @@
         </div>
         <div class="modal-body text-center">
           You sent <u id="senttxamount">0.0233</u> <span id="txtype">ETH</span> to <b id="txtoaddress">0xB64ef51C888972c908CFacf59B47C1AfBC0Ab8aC</b>
-
           <p class="txidLink text-primary" onclick="OpenEtherScan('0x31b2c588cbf74bec84491eb4ec8423cd13742f7d90315693771b6699c042eba5')">0x31b2c588cbf74bec84491eb4ec8423cd13742f7d90315693771b6699c042eba5</p>
-
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="mintSuccessModal" tabindex="-1" role="dialog" aria-labelledby="mintSuccessModalLabel">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h4 class="modal-title" id="mintSuccessModalLabel">Transaction Sent</h4>
+        </div>
+        <div class="modal-body text-center">
+          <p class="text-primary">
+            Reward was requested. Please check status of your transaction.
+          </p>
+          <p class="txidLink text-primary" onclick="OpenEtherScan('0x31b2c588cbf74bec84491eb4ec8423cd13742f7d90315693771b6699c042eba5')">0x31b2c588cbf74bec84491eb4ec8423cd13742f7d90315693771b6699c042eba5</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="mintModal" tabindex="-1" role="dialog" aria-labelledby="mintModalLabel">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h4 class="modal-title" id="mintModalLabel">Collect reward</h4>
+        </div>
+        <div class="modal-body text-center">
+          <p class="help-block gas-price">
+            Gas price:
+          </p>
+          <div class="slider-container">
+            <div class="init-slider" data-slider-for="mint">
+              <div class="custom-handle ui-slider-handle"></div>
+            </div>
+          </div>
+          <p class="help-block gas-info">
+            Speed: <span class="mint-speed transaction-slow">SLOW</span> /
+            GWEI: <span class="mint-gas-price">0</span> /
+            Max TX Fee: <span class="mint-estimated-fee">0</span> ETH
+          </p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="button" id="submit-mint" data-dismiss="modal">Confirm</button>
+          <button type="button" class="button pull-right" data-dismiss="modal">Close</button>
         </div>
       </div>
     </div>
@@ -277,7 +360,7 @@
 </main>
 
 <footer>
-  <span class="about bottom" data-toggle="modal" data-target="#aboutmodal">About the REBL wallet v0.0.1</span>
+  <span class="about bottom" data-toggle="modal" data-target="#aboutmodal">About the REBL wallet v0.0.2</span>
 </footer>
 
 
@@ -291,6 +374,7 @@
 </script>
 
 <script src="js/jquery.min.js"></script>
+<script src="js/jquery-ui.min.js"></script>
 <script src="js/jquery.validate.min.js"></script>
 <script src="js/bootstrap.min.js"></script>
 <script src="js/main.js"></script>
