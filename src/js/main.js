@@ -6,9 +6,12 @@ let Transaction = require('./js/transaction');
 let Web3 = require('web3');
 let log = require('electron-log');
 let toastr = require('toastr');
+let ledger = require('ledgerco');
+import LedgerWallet from './js/ledger.js';
+import { deriveWallets } from './js/helpers';
 
 let currentProvider = 'infura';
-let web3 = new Web3(new Web3.providers.HttpProvider(config.networkProvider[currentProvider]));
+let web3 = new Web3(new Web3.providers.WebsocketProvider(config.networkProvider[currentProvider]));
 
 let myWallet;
 let contract = new web3.eth.Contract(config.tokenAbi, config.tokenAddress);
@@ -16,7 +19,7 @@ let transaction;
 
 let tokenBalance = 0;
 let ethBalance = 0;
-let version = "0.0.2";
+let version = "0.0.3";
 
 let reblUSD = 0;
 let etherUSD = 0;
@@ -27,7 +30,87 @@ let transactionPrices = {
   fastTransactionPrice: config.fastTransactionPriceDown
 };
 
+let ledgerWallet;
+let keys;
+let ledgerComm;
+
 const defaultDecimals = 1000000000000000000;
+
+function initLedger() {
+  let wallets;
+  return new Promise((resolve, reject) => {
+    if (!ledgerWallet) {
+      ledger.comm_node.create_async().then(comm => {
+        let eth = new ledger.eth(comm);
+        ledgerComm = comm;
+        eth.getAddress_async(config.ledgerPath, false, true).then(res => {
+          keys = res;
+          wallets = deriveWallets(keys);
+          fillWalletsTable(wallets);
+          ledgerWallet = 1; // dirty hack
+          resolve();
+        }).catch(err => {
+          reject(err);
+          if (err && err.metaData && err.metaData.code === 5) {
+          }
+        });
+      }).catch(() => {
+          reject();
+      });
+    }
+  });
+}
+
+function UseLedgerNanoS() {
+  HideButtons();
+  $('#ledgernano').attr('class', '');
+}
+
+function ConnectLedgerNanoS() {
+  initLedger().then(() => {
+    toastr.clear();
+    $('#chooseWallet').modal('show');
+  }).catch(() => {
+    toastr.error('Make sure your Ledger is plugged in, turned on, has "Browser support" disabled and has "Contract data" enabled.');
+  });
+  if(ledgerWallet) {
+    toastr.clear();
+    $('#chooseWallet').modal('show');
+
+  }
+}
+
+function clearToastr(){
+  toastr.clear();
+}
+
+async function fillBalances(wallets) {
+  for (let wallet of wallets) {
+    let ethBalance = parseFloat(await getEthBalance(wallet.address));
+    let reblBalance = await getReblBalance(wallet.address);
+    reblBalance = reblBalance.reblValue;
+    $('.eth-balance-' + wallet.index).text(ethBalance.toFixed(4));
+    $('.rebl-balance-' + wallet.index).text(reblBalance.toFixed(4));
+  }
+}
+
+function fillWalletsTable(wallets) {
+  let walletsTable = $('.wallets-list tbody');
+  walletsTable.html();
+  let list = '';
+  for (let wallet of wallets) {
+    list +=
+      '<tr>' +
+        '<td>' +
+          '<input type="radio" class="selected-wallet" id="selected-wallet-'+wallet.address+'" name="selected-wallet" data-address="'+wallet.address+'" value="'+wallet.index+'"><label for="selected-wallet-'+wallet.address+'">'+wallet.address+'</label>'+
+        '</td>' +
+        '<td class="eth-balance-'+wallet.index+'">-</td>' +
+        '<td class="rebl-balance-'+wallet.index+'">-</td>' +
+      '</tr>'
+  }
+  walletsTable.html(list);
+  fillBalances(wallets);
+}
 
 let keyStoreButton = $('#keystorebtn');
 let keyStoreJsonError = $('#keystorejsonerror');
@@ -45,7 +128,7 @@ toastr.options = {
     "newestOnTop": false,
     "progressBar": false,
     "positionClass": "toast-top-left",
-    "preventDuplicates": false,
+    "preventDuplicates": true,
     "onclick": null,
     "showDuration": "300",
     "hideDuration": "1000",
@@ -71,7 +154,7 @@ function checkNet() {
 
 function handleError(e, action = false) {
   log.error(e, action['from']);
-  if(currentProvider === 'infura' && action['function']) {
+  if (currentProvider === 'infura' && action['function']) {
     currentProvider = 'giveth';
     web3.setProvider(config.networkProvider[currentProvider]);
     contract = new web3.eth.Contract(config.tokenAbi, config.tokenAddress);
@@ -83,6 +166,9 @@ function handleError(e, action = false) {
   }
   else if (e == 'Error: Returned error: insufficient funds for gas * price + value null') {
     toastr.error("Your wallet's ETH balance is not enough to cover the gas cost. Please deposit some ETH into your wallet.");
+  }
+  else if (e == 'TypeError: Failed to fetch null' || e == 'TypeError: Failed to fetch') {
+    toastr.error("Collect reward service temporarily down for maintenance. Please try again later.");
   }
   else {
     toastr.error(e);
@@ -109,10 +195,14 @@ function OpenMyEtherWallet() {
   shell.openExternal('https://www.myetherwallet.com')
 }
 
+function openLink(link) {
+  shell.openExternal(link);
+}
+
 function ReblPrice() {
   let api = "https://api.coinmarketcap.com/v1/ticker/rebellious/";
   $.get(api, (data, status) => {
-    if(status === 'success') {
+    if (status === 'success') {
       reblUSD = parseFloat(data[0]['price_usd']);
     }
   });
@@ -200,7 +290,7 @@ setInterval(() => {
   if (myWallet) {
       getReward();
   }
-}, 300000);
+}, 1200000);
 
 setInterval(updateTransactionPrices, 60000);
 
@@ -232,6 +322,7 @@ function HideButtons() {
   $('#keystoreupload').attr('class', 'hidden');
   $('#createnewwallet').attr('class', 'hidden');
   $('#privatekey').attr('class', 'hidden');
+  $('#ledgernano').attr('class', 'hidden');
 }
 
 function OpenPrivateKey() {
@@ -263,13 +354,36 @@ function OpenNewWallet() {
   let passconf = $('#newpassconf').val();
 }
 
+function getEthBalance(address) {
+  return new Promise((resolve, reject) => {
+    web3.eth.getBalance(address).then(balance => {
+      let etherString = web3.utils.fromWei(balance, 'ether');
+      let n = parseFloat(etherString);
+      resolve(n);
+    }).catch(err => {
+      reject(err);
+    });
+  });
+}
+
+function getReblBalance(address) {
+  return new Promise((resolve, reject) => {
+    let getReblBalanceCall = contract.methods.balanceOf(address).call();
+
+    getReblBalanceCall.then(balance => {
+      let reblValue = balance * (1 / defaultDecimals);
+      resolve({reblValue, balance});
+    }).catch(err => {
+      reject(err);
+    });
+  });
+}
+
 function updateBalance() {
   let address = myWallet.address;
   $('.myaddress').html(address);
 
-  web3.eth.getBalance(address).then(balance => {
-    let etherString = web3.utils.fromWei(balance, 'ether');
-    let n = parseFloat(etherString);
+  getEthBalance(address).then(n => {
     let ethValue = n.toLocaleString(
       'en-US',
       {
@@ -283,33 +397,27 @@ function updateBalance() {
   }).catch(err => {
     handleError(err, {
       'function': updateBalance,
-      'from': 'updateBalance'
+      'from': 'updateBalance->getEthBalance'
     });
   });
 
-  let contract = new web3.eth.Contract(config.tokenAbi, config.tokenAddress);
-  let getReblBalance = contract.methods.balanceOf(address).call();
-
-  getReblBalance.then(balance => {
-    let messageEl = $('#reblbal');
-    let n = balance * (1 / defaultDecimals);
-
-    let reblValue = n.toLocaleString(
+  getReblBalance(address).then(balances => {
+    let {reblValue, balance} = balances;
+    reblValue = reblValue.toLocaleString(
       'en-US',
       {
         minimumFractionDigits: 8
       }
     );
-
+    let messageEl = $('#reblbal');
     let split = reblValue.split(".");
     tokenBalance = balance;
     $('.reblspend').html(reblValue);
     messageEl.html(split[0] + ".<small>" + split[1] + "</small>");
-
   }).catch(err => {
     handleError(err, {
       'function': updateBalance,
-      'from': 'updateBalance'
+      'from': 'updateBalance->getReblBalance'
     });
   });
 
@@ -325,8 +433,8 @@ function OpenKeystoreFile() {
 }
 
 function SuccessAccess() {
-  localStorage.clear();
-  transaction = new Transaction(myWallet, web3, contract);
+  localStorage.removeItem('currentNonce');
+  transaction = new Transaction(myWallet, web3, contract, ledgerWallet);
   $('.select-open-method').hide();
   $('.walletInput').hide();
   $('.send-receive-tabs').toggleClass('hidden');
@@ -346,12 +454,19 @@ function GetEthGas() {
   let amount = ethAmountField.val();
   $('.eth-gas-limit').parent().parent().find('.init-slider').slider('disable');
   if(to.match(/^(0x)?[0-9A-fa-f]{40}$/) && amount !== '') {
-  let gasPrice = transactionPrices.normalTransactionPrice;
-  $('.eth-gas-limit').text(config.gasLimitFor['eth']);
-  $('.eth-gas-price').text(gasPrice);
-  $('.eth-estimated-fee').text((config.gasLimitFor['eth'] * gasPrice).toFixed(10) + ' ETH');
-  $('.eth-gas-limit').parent().parent().find('.init-slider').slider( 'value', gasPrice );
-  $('.eth-gas-limit').parent().parent().find('.init-slider').slider( 'enable' );
+    transaction.estimateFeeForEth(to, amount).then(result => {
+      let gasPrice = web3.utils.fromWei(result.gasPrice);
+      $('.eth-gas-limit').text(result.gasLimit);
+      $('.eth-gas-price').text(web3.utils.fromWei(result.gasPrice, 'gwei'));
+      $('.eth-estimated-fee').text((result.gasLimit * gasPrice).toFixed(10) + ' ETH');
+      $('.eth-gas-limit').parent().parent().find('.init-slider').slider( "value", web3.utils.fromWei(result.gasPrice, 'gwei') );
+      $('.eth-gas-limit').parent().parent().find('.init-slider').slider( 'enable' );
+    }).catch(err => {
+      handleError(err, {
+        'function': GetEthGas,
+        'from': 'GetEthGas'
+      });
+    });
   }
   return false;
 }
@@ -364,30 +479,46 @@ function GetTokenGas() {
   let amount = tokensAmountField.val();
   $('.rebl-gas-limit').parent().parent().find('.init-slider').slider('disable');
   if(to.match(/^(0x)?[0-9A-fa-f]{40}$/) && amount !== '') {
-  let gasPrice = transactionPrices.normalTransactionPrice;
-  $('.rebl-gas-limit').text(config.gasLimitFor['rebl']);
-  $('.rebl-gas-price').text(gasPrice);
-  $('.rebl-estimated-fee').text((config.gasLimitFor['rebl'] * gasPrice).toFixed(10) + ' ETH');
-  $('.rebl-gas-limit').parent().parent().find('.init-slider').slider( 'value', gasPrice );
-  $('.rebl-gas-limit').parent().parent().find('.init-slider').slider( 'enable' );
+    transaction.estimateFeeForTokens(to, amount).then(result => {
+      let gasPrice = web3.utils.fromWei(result.gasPrice);
+      $('.rebl-gas-limit').text(result.gasLimit);
+      $('.rebl-gas-price').text(web3.utils.fromWei(result.gasPrice, 'gwei'));
+      $('.rebl-estimated-fee').text((result.gasLimit * gasPrice).toFixed(10) + ' ETH');
+      $('.rebl-gas-limit').parent().parent().find('.init-slider').slider( "value", web3.utils.fromWei(result.gasPrice, 'gwei') );
+      $('.rebl-gas-limit').parent().parent().find('.init-slider').slider( 'enable' );
+    }).catch(err => {
+      handleError(err, {
+        'function': GetTokenGas,
+        'from': 'GetTokenGas'
+      });
+    });
   }
   return false;
 }
 
 function UnlockWalletKeystore() {
-  let password = $('#keystorewalletpass').val();
-  let buffer = fs.readFileSync(keyFile);
-  let walletData = buffer.toString();
-  keyStoreButton.html('Decrypting...');
-  keyStoreButton.prop('disabled', true);
 
-  if (keyFile !== ''){
+  if (keyFile !== '' && keyFile !== undefined) {
+    let password = $('#keystorewalletpass').val();
+    let buffer = fs.readFileSync(keyFile);
+    let walletData = buffer.toString();
+    keyStoreButton.html('Decrypting...');
+    keyStoreButton.prop('disabled', true);
     try {
-      myWallet = web3.eth.accounts.decrypt(JSON.parse(walletData.toLowerCase()), password);
-      SuccessAccess();
-      updateBalance();
-      UpdatePortfolio();
-      keyStoreButton.html('Decrypting...');
+      let JsonData = JSON.parse(walletData.toLowerCase());
+      try {
+        myWallet = web3.eth.accounts.decrypt(JsonData, password);
+        SuccessAccess();
+        updateBalance();
+        UpdatePortfolio();
+        keyStoreButton.html('Decrypting...');
+
+      } catch (e) {
+        keyStoreJsonError.html('Incorrect Password for Keystore Wallet');
+        keyStoreJsonError.show();
+        keyStoreButton.prop('disabled', false);
+        keyStoreButton.html('Open');
+      }
     } catch (e) {
       keyStoreJsonError.html('Please select correct keystore file');
       keyStoreJsonError.show();
@@ -422,24 +553,29 @@ function SendEthereum(gasPrice = config.defaultGasPrice) {
   disableSendEthButton('Please wait');
 
   if (amount !== '' && parseFloat(amount) <= ethBalance) {
-    transaction.sendEther(to, amount, gasPrice).then(transactionHash => {
-      enableSendEthButton();
-      $('#ethermodal').modal('hide');
-      txIdLink.html(transactionHash);
-      txIdLink.attr('onclick', "OpenEtherScan('"+transactionHash+"')");
-      $('#senttxamount').html(amount);
-      $('#txtoaddress').html(to);
-      $('#txtype').html('ETH');
-      $('#trxsentModal').modal('show');
-      updateBalance();
-      ethRecipientAddressField.val('');
-      ethAmountField.val('');
-    }).catch(e => {
-      handleError(e, {
-        'from': 'SendEthereum'
+    transaction.sendEther(to, amount, gasPrice)
+      .once('transactionHash', (transactionHash) => {
+        enableSendEthButton();
+        $('#ethermodal').modal('hide');
+        txIdLink.html(transactionHash);
+        txIdLink.attr('onclick', "OpenEtherScan('"+transactionHash+"')");
+        $('#senttxamount').html(amount);
+        $('#txtoaddress').html(to);
+        $('#txtype').html('ETH');
+        $('#trxsentModal').modal('show');
+        updateBalance();
+        ethRecipientAddressField.val('');
+        ethAmountField.val('');
+      })
+      .then(() => {
+        toastr.success('You have successfully sent '+amount+' ETH to '+to);
+      })
+      .catch(e => {
+        handleError(e, {
+          'from': 'SendEthereum'
+        });
+        enableSendEthButton();
       });
-      enableSendEthButton();
-    });
   }
 }
 
@@ -463,7 +599,7 @@ function showSend(type) {
 }
 
 function goBack(self) {
-  if($(self).hasClass('back-send')) {
+  if ($(self).hasClass('back-send')) {
     $('div[class*=send-crypto]').addClass('hidden');
     $('.send-receive-tabs-content').removeClass('hidden');
     $(self).removeClass('back-send').text('send');
@@ -569,69 +705,82 @@ function activateValidators() {
 }
 
 function getReward() {
-  let interestMethod = contract.methods.annualInterest();
-  interestMethod.call({from: myWallet.address}).then(interest => {
-    let coinAgeMethod = contract.methods.coinAge();
-    coinAgeMethod.call({from: myWallet.address}).then(coinAge => {
-      let reward = (coinAge * interest) / (365 * defaultDecimals);
-      reward = reward / defaultDecimals;
-      reward = reward.toLocaleString(
-        'en-US',
-        {
-          minimumFractionDigits: 8
+  let maxRewardDays = 30;
+  if (myWallet) {
+    let url = config.rewardApiAddress + "/api/v1/reward/amount/" + myWallet.address;
+    fetch(url, {
+      method: 'get'
+    })
+      .then(json => {
+        return json.json();
+      })
+      .then(async args => {
+        let daysToMaxReward = args.daysToReward;
+        if(localStorage.getItem('lastMint')) {
+          let lastMint = JSON.parse(localStorage.getItem('lastMint'));
+          if ((lastMint.time + (60 * 60 * 24)) > (Date.now() / 1000).toFixed(0)) {
+            let tx = await web3.eth.getTransactionReceipt(lastMint.txId);
+            if(!tx || (web3.utils.hexToNumber(tx.status) !== 1)) {
+              enableCollectRewardsButton();
+              args.canCollect = true;
+            }
+          }
         }
-      );
+        $('#reward').text(args.rewardAmount.toFixed(2));
+        $('#collect-reward-count').text(args.rewardAmount);
 
-      $('#reward').text(reward);
-      getRewardTime();
-      if(parseFloat(reward) > 0) {
-        enableCollectRewardsButton();
-      }
-      else {
+        $('#max-reward-days-count').text(daysToMaxReward);
+        $('#stake-days').text(maxRewardDays - daysToMaxReward);
+        fillProgressBar((1 - (daysToMaxReward / maxRewardDays)) * 100);
         $('.reward-info').show();
-      }
-    }).catch(err => {
-      handleError(err, {
-        'function': getReward,
-        'from': 'getReward'
+
+        if (args.canCollect) {
+          enableCollectRewardsButton();
+        }
+        else {
+          disableCollectRewardsButton();
+        }
+      })
+      .catch(err => {
+        handleError(err);
       });
-    });
-  }).catch(err => {
-    handleError(err, {
-      'function': getReward,
-      'from': 'getReward'
-    });
-  });
+  }
 }
 
 function SendToken(gasPrice = config.defaultGasPrice) {
   let to = tokenRecipientAddressField.val();
-  let amount = tokensAmountField.val() * defaultDecimals;
+  let amount = tokensAmountField.val();
+  let amountWei = amount * defaultDecimals;
 
   disableSendReblButton('Please wait');
 
-  if (amount !== '' && parseFloat(amount) <= tokenBalance) {
+  if (amountWei !== '' && parseFloat(amountWei) <= tokenBalance) {
 
-    transaction.sendTokens(to, scientificToDecimal(amount), gasPrice).then(transactionHash => {
-      $('#reblmodal').modal('hide');
-      enableSendReblButton();
-      getReward();
-      txIdLink.html(transactionHash);
-      txIdLink.attr('onclick', "OpenEtherScan('"+transactionHash+"')");
-      $('#senttxamount').html(amount / defaultDecimals);
-      $('#txtoaddress').html(to);
-      $('#txtype').html('REBL');
-      $('#trxsentModal').modal('show');
-      updateBalance();
-      tokenRecipientAddressField.val('');
-      tokensAmountField.val('');
-    })
-    .catch(err => {
-      handleError(err, {
-        'from': 'SendToken'
+    transaction.sendTokens(to, scientificToDecimal(amountWei), gasPrice)
+      .once('transactionHash', (transactionHash) => {
+        $('#reblmodal').modal('hide');
+        enableSendReblButton();
+        disableCollectRewardsButton();
+        resetProgressbar();
+        txIdLink.html(transactionHash);
+        txIdLink.attr('onclick', "OpenEtherScan('"+transactionHash+"')");
+        $('#senttxamount').html(amount);
+        $('#txtoaddress').html(to);
+        $('#txtype').html('REBL');
+        $('#trxsentModal').modal('show');
+        updateBalance();
+        tokenRecipientAddressField.val('');
+        tokensAmountField.val('');
+      })
+      .then(() => {
+        toastr.success('You have successfully sent '+amount+' REBL to '+to);
+      })
+      .catch(err => {
+        handleError(err, {
+          'from': 'SendToken'
+        });
+        enableSendReblButton();
       });
-      enableSendReblButton();
-    });
   }
 }
 
@@ -660,85 +809,50 @@ function disableSendEthButton(text = 'Send') {
 }
 
 function collectRewards() {
-  $('#submit-mint').off('click');
-  let slider = $('#mintModal').find('.init-slider');
-  slider.slider('disable');
-  $('#mintModal').modal('show');
-  slider.slider('value', transactionPrices.normalTransactionPrice);
-  slider.slider('enable');
-  $('#submit-mint').on('click', (e) => {
-    e.preventDefault();
-    disableCollectRewardsButton('Please wait');
-    transaction.mint(slider.slider('value')).then(transactionHash => {
-      txIdLink.html(transactionHash);
-      txIdLink.attr('onclick', "OpenEtherScan('"+transactionHash+"')");
-      $('#mintSuccessModal').modal('show');
-      getReward();
-      updateBalance();
-      disableCollectRewardsButton();
-      resetProgressbar();
-    }).catch(err => {
-      if (err == "Error: Returned error: insufficient funds for gas * price + value") {
-        err = "Your wallet's ETH balance is not enough to cover the gas cost. Please deposit some ETH into your wallet.";
-      }
-      else {
-        err = 'Collect reward failed: ' + err;
-      }
-      enableCollectRewardsButton();
-      handleError(err);
-    });
-  });
-}
+  if (myWallet) {
+    $('#rewardModal').modal('show');
+    $('#submit-reward').off('click');
+    $('#submit-reward').on('click', (e) => {
+      e.preventDefault();
+      disableCollectRewardsButton('Please wait');
 
-async function getRewardTime() {
-  const maxRewardDays = 30;
-  let transferEvents = await contract.getPastEvents('Transfer', {
-    filter: {
-      from: myWallet.address
-    },
-    fromBlock: 0
-  });
-  let mintEvents = await contract.getPastEvents('Mint', {
-    filter: {
-        _address: myWallet.address
-    },
-    fromBlock: 0
-  });
-  let latestTransferBlock;
-  let latestMintBlock;
-  let maxBlockNumber;
-  let block;
-  let daysToMaxReward;
-  if(transferEvents.length && mintEvents.length) {
-    latestTransferBlock = transferEvents[transferEvents.length-1].blockNumber;
-    latestMintBlock = mintEvents[mintEvents.length-1].blockNumber;
-    maxBlockNumber = latestTransferBlock > latestMintBlock ? latestTransferBlock : latestMintBlock;
-  } else if(transferEvents.length && !mintEvents.length) {
-      maxBlockNumber = transferEvents[transferEvents.length-1].blockNumber;
-  } else if(!transferEvents.length && mintEvents.length) {
-      maxBlockNumber = mintEvents[mintEvents.length-1].blockNumber;
-  } else if(!transferEvents.length && !mintEvents.length) {
-    transferEvents = await contract.getPastEvents('Transfer', {
-      filter: {
-          to: myWallet.address
-      },
-      fromBlock: 0
+      let url = config.rewardApiAddress + "/api/v1/reward/collect";
+      fetch(url, {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        method: "POST",
+        body: "address=" + myWallet.address
+      })
+        .then(json => {
+          return json.json();
+        })
+        .then(args => {
+          if (args.result == false) {
+            handleError(args.message);
+            enableCollectRewardsButton();
+          }
+          else {
+            localStorage.setItem('lastMint', JSON.stringify({
+              time: (Date.now() / 1000).toFixed(0),
+              txId: args.txId
+            }));
+            txIdLink = $('.txidLink');
+            txIdLink.html(args.txId);
+            txIdLink.attr('onclick', "OpenEtherScan('" + args.txId + "')");
+            getReward();
+            updateBalance();
+            resetProgressbar();
+            $('#rewardSuccessModal').modal('show');
+          }
+        })
+        .catch(err => {
+          err = 'Collect reward failed: ' + err;
+          enableCollectRewardsButton();
+          handleError(err);
+        });
     });
-    if(transferEvents.length) {
-      maxBlockNumber = transferEvents[0].blockNumber;
-    } else {
-      return;
-    }
   }
-  block = await web3.eth.getBlock(maxBlockNumber);
-  daysToMaxReward = (maxRewardDays - (((Date.now() / 1000) - (block.timestamp)) / 60 / 60 / 24)).toFixed(0);
-  if (daysToMaxReward < 0) {
-    daysToMaxReward = 0;
-  }
-  $('.reward-info').show();
-  $('#max-reward-days-count').text(daysToMaxReward);
-  $('#stake-days').text(maxRewardDays - daysToMaxReward);
-  fillProgressBar((1 - (daysToMaxReward / maxRewardDays)) * 100);
 }
 
 function fillProgressBar(maxWidth) {
@@ -746,7 +860,7 @@ function fillProgressBar(maxWidth) {
   let width = 0;
   let id = setInterval(frame, 10);
   function frame() {
-    if (width >= maxWidth) {
+    if (width >= maxWidth && width > 0) {
       clearInterval(id);
     } else {
       width++;
@@ -758,6 +872,7 @@ function fillProgressBar(maxWidth) {
 function resetProgressbar() {
   fillProgressBar(1);
   $('#max-reward-days-count').text(30);
+  $('#stake-days').text(0);
 }
 
 function updateTransactionPrices() {
@@ -774,8 +889,7 @@ function updateTransactionPrices() {
 }
 
 function determineTransactionSpeed(gasPrice) {
-  if((gasPrice >= transactionPrices.slowTransactionPrice && gasPrice < transactionPrices.normalTransactionPrice) ||
-      gasPrice < transactionPrices.slowTransactionPrice) {
+  if(gasPrice >= transactionPrices.slowTransactionPrice && gasPrice < transactionPrices.normalTransactionPrice) {
     return 'slow';
   }
   if(gasPrice >= transactionPrices.normalTransactionPrice && gasPrice < transactionPrices.fastTransactionPrice) {
@@ -786,7 +900,18 @@ function determineTransactionSpeed(gasPrice) {
   }
 }
 
+function openLedgerWallet(address) {
+  myWallet = {
+    address: address
+  };
+  HideButtons();
+  SuccessAccess();
+  updateBalance();
+  UpdatePortfolio();
+}
+
 $(() => {
+  let offset = 0;
   $('.init-slider').each((index, item) => {
     let handle = $(item).find('.custom-handle');
     let sliderType = $(item).data('slider-for');
@@ -825,5 +950,32 @@ $(() => {
     UpdatePortfolio();
     updateBalance();
     getReward();
+  });
+  $('#more-wallets').on('click', (e) => {
+    e.preventDefault();
+    offset += 5;
+    fillWalletsTable(deriveWallets(keys, offset));
+  });
+  $('#less-wallets').on('click', (e) => {
+    e.preventDefault();
+    offset -= 5;
+    if(offset < 0) {
+      offset = 0;
+    }
+    fillWalletsTable(deriveWallets(keys, offset));
+  });
+  let selectedWallet;
+  $('#open-wallet').on('click', (e) => {
+    e.preventDefault();
+    ledgerWallet = new LedgerWallet(selectedWallet.address, config.ledgerPath, selectedWallet.index, ledgerComm);
+    openLedgerWallet(selectedWallet.address);
+  });
+  $(document).on('change', '.wallets-list input', () => {
+    let selectedWalletEl = $('.selected-wallet:checked');
+    selectedWallet = {
+      address: selectedWalletEl.data('address'),
+      index: selectedWalletEl.val()
+    };
+    $('#open-wallet').prop('disabled', false);
   });
 });

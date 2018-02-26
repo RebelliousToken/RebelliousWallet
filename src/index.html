@@ -15,20 +15,35 @@
 
 <header class="container-fluid">
   <div class="row">
-    <div class="col-md-12 text-center">
+
+    <div class="text-center">
       <img src="images/logo.png" width="100%">
-      <span class="about top link" data-toggle="modal" data-target="#aboutmodal">About the REBL wallet v0.0.2</span>
+      <div class="select-open-method create-wallet">
+        <button class="button button-small top-info" onclick="OpenMyEtherWallet();">Create New Wallet</button>
+      </div>
+      <span class="about top link" data-toggle="modal"
+            data-target="#aboutmodal">About the REBL wallet v0.0.3</span>
       <span class="about top" id="refresh"><img src="images/refresh.png"></span>
       <div class="drag-line"></div>
     </div>
   </div>
 </header>
-<main class="container-fluid">
-  <div class="row select-open-method">
-    <div class="col-md-12 text-center">
-      <button class="button" onclick="UseKeystore();">Use Keystore JSON</button>
-      <button class="button" onclick="UsePrivateKey();">Use Private Key</button>
-      <button class="button" onclick="OpenMyEtherWallet();">Create New Wallet</button>
+
+<main class="container">
+
+  <div class="select-open-method">
+    <div class="row">
+      <div class="col-md-4 col-sm-4 col-xs-12 text-center">
+        <button class="button" onclick="UseKeystore();">Use Keystore JSON</button>
+      </div>
+
+      <div class="col-md-4 col-sm-4 col-xs-12 text-center">
+        <button class="button" onclick="UsePrivateKey();">Use Private Key</button>
+      </div>
+
+      <div class="col-md-4 col-sm-4 col-xs-12 text-center">
+        <button class="button" onclick="UseLedgerNanoS();">Use Ledger Nano S</button>
+      </div>
     </div>
   </div>
 
@@ -43,50 +58,54 @@
   <div class="row hidden send-receive-tabs-content">
     <div class="tab-content">
       <div id="send" class="tab-pane fade in active">
-        <div class="col-md-4 text-center">
-          <h2>
-            REBL
-          </h2>
-          <span id="reblbal" class="bordered">0.0000</span>
-          <span class="info">US DOLLARS: $<span id="portfolioRebl">0.00</span></span>
-          <button type="button" class="button" id="send-rebl-tokens" onclick="UpdateTokenFeeETH();showSend('rebl');">
-            Send REBL
-          </button>
-        </div>
-        <div class="col-md-4 text-center">
-          <h2>
-            REWARD*
-          </h2>
-          <span id="reward" class="bordered">0.00000000</span>
-          <span class="m-t-32 block"></span>
-          <button type="button" class="button" id="collect-rewards" onclick="collectRewards();" disabled>
-            Collect Reward
-          </button>
-          <div class="reward-info">
+        <div class="row">
+          <div class="col-md-4 col-sm-12 text-center">
+            <h2>
+              REBL
+            </h2>
+            <span id="reblbal" class="bordered">0.0000</span>
+            <span class="info">US DOLLARS: $<span id="portfolioRebl">0.00</span></span>
+            <button type="button" class="button" id="send-rebl-tokens" onclick="UpdateTokenFeeETH();showSend('rebl');">
+              Send REBL
+            </button>
+          </div>
+          <div class="col-md-4 col-sm-12 text-center">
+            <h2>
+              REWARD*
+            </h2>
+            <span id="reward" class="bordered">0.00000000</span>
+            <span class="m-t-32 block"></span>
+            <button type="button" class="button" id="collect-rewards" onclick="collectRewards();" disabled>
+              Collect Reward
+            </button>
+            <div class="reward-info">
             <span class="info">
-              max reward reached in <span id="max-reward-days-count">30</span> days
+              reward will be reached in <span id="max-reward-days-count">30</span> days
             </span>
-            <div class="reward-progress-bar">
-              <div id="max-reward-days-bar"></div>
+              <div class="reward-progress-bar">
+                <div id="max-reward-days-bar"></div>
+              </div>
+              <div>DAY <span id="stake-days">0</span> / 30</div>
             </div>
-            <div>DAY <span id="stake-days">0</span> / 30</div>
+          </div>
+          <div class="col-md-4 col-sm-12 text-center">
+            <h2>
+              ETH
+            </h2>
+            <span id="ethbal" class="bordered">0.0000</span>
+            <span class="info">US DOLLARS: $<span id="portfolioEth">0.00</span></span>
+            <button type="button" class="button" onclick="UpdateAvailableETH();showSend('eth');">
+              Send ETH
+            </button>
+
           </div>
         </div>
-        <div class="col-md-4 text-center">
-          <h2>
-            ETH
-          </h2>
-          <span id="ethbal" class="bordered">0.0000</span>
-          <span class="info">US DOLLARS: $<span id="portfolioEth">0.00</span></span>
-          <button type="button" class="button" onclick="UpdateAvailableETH();showSend('eth');">
-            Send ETH
-          </button>
-        </div>
         <br>
-        <div class="col-md-12">
-          <span class="pull-left portfolio">
-            *expected reward in rebl. gas cost excluded
+        <div class="portfolio-div">
+          <span class="portfolio pull-left">
+            *expected reward in rebl.
           </span>
+
           <span class="portfolio pull-right">
             TOTAL value (rebl+eth) reward excluded us dollars: $<span id="portfolioTotal">0.00</span>
           </span>
@@ -108,18 +127,18 @@
         <form id="send-rebl">
           <div class="input-group">
             <input type="text" id="send_to_token" name="send_to_token" class="form-control input bordered"
-                 aria-label="Amount (to the nearest dollar)"
-                 placeholder="0x0000000000000000000000000000000000000000"
-                 onkeyup="GetTokenGas();"
+                   aria-label="Amount (to the nearest dollar)"
+                   placeholder="0x0000000000000000000000000000000000000000"
+                   onkeyup="GetTokenGas();"
             >
             <span class="input-group-addon">Address</span>
             <p class="error-placement"></p>
           </div>
           <div class="input-group">
             <input type="number" min="0" id="send_amount_token"
-                 name="send_amount_token" class="form-control input bordered"
-                 aria-label="Amount (to the nearest dollar)"
-                 placeholder="0.0" onkeyup="CheckTokenAvailable();GetTokenGas();">
+                   name="send_amount_token" class="form-control input bordered"
+                   aria-label="Amount (to the nearest dollar)"
+                   placeholder="0.0" onkeyup="CheckTokenAvailable();GetTokenGas();">
             <span class="input-group-addon">REBL</span>
             <p class="error-placement"></p>
           </div>
@@ -129,13 +148,18 @@
             Gas Limit: <u class="rebl-gas-limit">0</u>
           </p>
           <br>
-          <div class="slider-container">
-            <div class="init-slider" data-slider-for="rebl">
-              <div class="custom-handle ui-slider-handle"></div>
+          <p class="help-block gas-price m-t-14 visible-sm visible-xs">
+            Gas price:
+          </p>
+          <div class="input-group">
+            <div class="slider-container">
+              <div class="init-slider" data-slider-for="rebl">
+                <div class="custom-handle ui-slider-handle"></div>
+              </div>
             </div>
             <button type="submit" id="sendtokenbutton" class="button send-rebl-eth">Send</button>
           </div>
-          <p class="help-block gas-price m-t-14">
+          <p class="help-block gas-price m-t-14 hidden-sm hidden-xs">
             Gas price:
           </p>
           <p class="help-block gas-info m-t-14">
@@ -157,9 +181,9 @@
         <form id="send-eth">
           <div class="input-group">
             <input type="text" id="send_ether_to" name="send_ether_to" class="form-control input bordered"
-                 aria-label="Amount (to the nearest dollar)"
-                 placeholder="0x0000000000000000000000000000000000000000"
-                 onkeyup="GetEthGas();"
+                   aria-label="Amount (to the nearest dollar)"
+                   placeholder="0x0000000000000000000000000000000000000000"
+                   onkeyup="GetEthGas();"
             >
             <span class="input-group-addon">Address</span>
             <p class="error-placement"></p>
@@ -167,22 +191,30 @@
 
           <div class="input-group">
             <input type="number" min="0" id="send_ether_amount" name="send_ether_amount" class="form-control input bordered"
-                 aria-label="Amount (to the nearest dollar)"
-                 placeholder="0.0" onkeyup="CheckETHAvailable();GetEthGas();">
+                   aria-label="Amount (to the nearest dollar)"
+                   placeholder="0.0" onkeyup="CheckETHAvailable();GetEthGas();">
             <span class="input-group-addon">ETH</span>
+            <p class="error-placement"></p>
           </div>
           <p class="help-block">
             <u class="ethspend">0.0</u> ETH Available |
             Gas Limit: <u class="eth-gas-limit">0</u>
           </p>
           <br>
-          <div class="slider-container">
-            <div class="init-slider" data-slider-for="eth">
-              <div class="custom-handle ui-slider-handle"></div>
+          <p class="help-block gas-price m-t-14 visible-sm visible-xs">
+            Gas price:
+          </p>
+          <div class="input-group">
+
+            <div class="slider-container">
+              <div class="init-slider" data-slider-for="eth">
+                <div class="custom-handle ui-slider-handle"></div>
+              </div>
             </div>
             <button type="submit" id="sendethbutton" class="button send-rebl-eth">Send</button>
+
           </div>
-          <p class="help-block gas-price m-t-14">
+          <p class="help-block gas-price m-t-14 hidden-sm hidden-xs">
             Gas price:
           </p>
           <p class="help-block gas-info m-t-14">
@@ -196,7 +228,7 @@
   </div>
 
   <div class="walletInput col-md-12">
-    <div class="div-center">
+    <div class="text-center">
       <div id="keystoreupload" class="hidden">
         <div class="form-group">
           <label for="open-key-store" class="open-key-store-label">Keystore JSON File:</label>
@@ -222,6 +254,18 @@
           <p class="errorInfo text-info" id="privatekeyerror">Invalid Ethereum Wallet Private Key</p>
         </div>
       </div>
+
+      <div id="ledgernano" class="hidden">
+
+        <div class="text-center">
+          <p>LEDGER WALLET<br>
+            <span class="text-colored">MAKE SURE YOUR LEDGER IS PLUGGED IN, TURNED ON, HAS “BROWSER SUPPORT” DISABLED AND HAS “CONTRACT DATA” ENABLED</span>
+          </p>
+          <div class="ledger-logo"><img class="ledger-image" src="images/ledger.png"></div>
+          <button class="button" onclick="ConnectLedgerNanoS();">Connect to Ledger</button>
+
+        </div>
+      </div>
     </div>
   </div>
 
@@ -239,7 +283,8 @@
 
           <div class="btn-group pull-left" role="group">
             <button type="button" class="btn btn-default">
-              Gas Price: <input id="ethgasprice" type="number" value="21" style="width: 40px;" onchange="GetEthGas();" min="5" max="50"> gwei
+              Gas Price:
+              <input id="ethgasprice" type="number" value="21" style="width: 40px;" onchange="GetEthGas();" min="5" max="50"> gwei
             </button>
             <button type="button" class="btn btn-default">
               Fee: <input id="ethtxfee" type="text" value="0.00044" readonly style="width: 75px;" min="5" max="50"> ETH
@@ -255,7 +300,7 @@
     <div class="modal-dialog" role="document">
       <div class="modal-content">
         <div class="modal-header">
-          <h4 class="modal-title" id="myModalLabel">About REBL Wallet v0.0.2</h4>
+          <h4 class="modal-title" id="aboutWalletLabel">About REBL Wallet v0.0.3</h4>
         </div>
         <div class="modal-body text-center text-colored">
           <p>
@@ -298,7 +343,8 @@
           <h4 class="modal-title" id="myModalLabel">Transaction Sent</h4>
         </div>
         <div class="modal-body text-center">
-          You sent <u id="senttxamount">0.0233</u> <span id="txtype">ETH</span> to <b id="txtoaddress">0xB64ef51C888972c908CFacf59B47C1AfBC0Ab8aC</b>
+          You sent <u id="senttxamount">0.0233</u> <span id="txtype">ETH</span> to
+          <b id="txtoaddress">0xB64ef51C888972c908CFacf59B47C1AfBC0Ab8aC</b>
           <p class="txidLink text-primary" onclick="OpenEtherScan('0x31b2c588cbf74bec84491eb4ec8423cd13742f7d90315693771b6699c042eba5')">0x31b2c588cbf74bec84491eb4ec8423cd13742f7d90315693771b6699c042eba5</p>
         </div>
         <div class="modal-footer">
@@ -308,17 +354,17 @@
     </div>
   </div>
 
-  <div class="modal fade" id="mintSuccessModal" tabindex="-1" role="dialog" aria-labelledby="mintSuccessModalLabel">
+  <div class="modal fade" id="rewardSuccessModal" tabindex="-1" role="dialog" aria-labelledby="rewardSuccessModalLabel">
     <div class="modal-dialog" role="document">
       <div class="modal-content">
         <div class="modal-header">
-          <h4 class="modal-title" id="mintSuccessModalLabel">Transaction Sent</h4>
+          <h4 class="modal-title" id="rewardSuccessModalLabel">Transaction Sent</h4>
         </div>
         <div class="modal-body text-center">
           <p class="text-primary">
             Reward was requested. Please check status of your transaction.
           </p>
-          <p class="txidLink text-primary" onclick="OpenEtherScan('0x31b2c588cbf74bec84491eb4ec8423cd13742f7d90315693771b6699c042eba5')">0x31b2c588cbf74bec84491eb4ec8423cd13742f7d90315693771b6699c042eba5</p>
+          <p class="txidLink text-primary" onclick="OpenEtherScan('')"></p>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
@@ -327,30 +373,50 @@
     </div>
   </div>
 
-  <div class="modal fade" id="mintModal" tabindex="-1" role="dialog" aria-labelledby="mintModalLabel">
+
+  <div class="modal fade" id="rewardModal" tabindex="-1" role="dialog" aria-labelledby="rewardModalLabel">
     <div class="modal-dialog" role="document">
       <div class="modal-content">
         <div class="modal-header">
-          <h4 class="modal-title" id="mintModalLabel">Collect reward</h4>
+          <h4 class="modal-title" id="rewardModalLabel">Collect reward</h4>
         </div>
         <div class="modal-body text-center">
-          <p class="help-block gas-price">
-            Gas price:
-          </p>
-          <div class="slider-container">
-            <div class="init-slider" data-slider-for="mint">
-              <div class="custom-handle ui-slider-handle"></div>
-            </div>
-          </div>
-          <p class="help-block gas-info">
-            Speed: <span class="mint-speed transaction-slow">SLOW</span> /
-            GWEI: <span class="mint-gas-price">0</span> /
-            Max TX Fee: <span class="mint-estimated-fee">0</span> ETH
-          </p>
+          You want to collect reward <span id="collect-reward-count">0</span> REBL.
         </div>
         <div class="modal-footer">
-          <button type="button" class="button" id="submit-mint" data-dismiss="modal">Confirm</button>
+          <button type="button" class="button" id="submit-reward" data-dismiss="modal">Confirm</button>
           <button type="button" class="button pull-right" data-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade choose-wallet" id="chooseWallet" tabindex="-1" role="dialog" aria-labelledby="chooseWallet">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-header text-center">
+          <span class="modal-title">PLEASE SELECT THE ADDRESS YOU WOULD LIKE TO INTERACT WITH</span>
+        </div>
+        <div class="modal-body">
+          <table class="wallets-list">
+            <thead>
+            <tr>
+              <th>YOUR ADDRESS</th>
+              <th>Balance</th>
+              <th>Token balances</th>
+            </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+          <div class="more-back-wrapper">
+            <a id="less-wallets">Back</a>
+            <a id="more-wallets">MORE ADDRESSES</a>
+          </div>
+        </div>
+        <div class="modal-footer text-right">
+          <button type="button" class="button" data-dismiss="modal">Cancel</button>
+          <button type="button" class="button" id="open-wallet" data-dismiss="modal" disabled>UNLOCK YOUR WALLET</button>
+
         </div>
       </div>
     </div>
@@ -360,7 +426,7 @@
 </main>
 
 <footer>
-  <span class="about bottom" data-toggle="modal" data-target="#aboutmodal">About the REBL wallet v0.0.2</span>
+  <span class="about bottom" data-toggle="modal" data-target="#aboutmodal">About the REBL wallet v0.0.3</span>
 </footer>
 
 

@@ -6,10 +6,9 @@
 html, body {
   padding: 0;
   margin: 0;
-  height: 100%;
   font-family: 'Saira Condensed', sans-serif;
   color: #000;
-  overflow: hidden;
+  overflow: auto;
 }
 
 label {
@@ -93,8 +92,7 @@ input[type=number]::-webkit-outer-spin-button {
     line-height: 49px;
   }
   &.send-rebl-eth {
-    margin-left: 46px;
-    margin-top: 6px;
+    margin-top: -9px;
     padding: 1rem 0;
     width: 269px;
   }
@@ -103,6 +101,14 @@ input[type=number]::-webkit-outer-spin-button {
     &:hover {
       color: #fff;
       cursor: not-allowed;
+    }
+  }
+  &.button-small {
+    font-size: 13px;
+    padding: 0.8rem 0;
+    width: 140px;
+    &.top-info {
+      margin: 26px 0 0 35px;
     }
   }
 }
@@ -125,7 +131,10 @@ input[type=number]::-webkit-outer-spin-button {
 header {
   background: url("../images/bg.png") left bottom no-repeat;
   background-size: cover;
+  position: relative;
+
 }
+
 .about {
   position: absolute;
   text-transform: uppercase;
@@ -146,6 +155,7 @@ header {
     }
   }
   &.bottom {
+    position: fixed;
     bottom: 10px;
     right: 25px;
     font-size: 2rem;
@@ -155,6 +165,11 @@ header {
     bottom: -310px;
     margin-bottom: 20px;
   }
+}
+
+.about-link {
+  text-transform: uppercase;
+  cursor: pointer;
 }
 
 .drag-line {
@@ -171,17 +186,110 @@ header {
   margin: 0 auto;
 }
 
+@media (min-width: 992px) and (max-width: 1199px) {
+  .send-crypto {
+    .form-group {
+      .input {
+        &.bordered {
+          font-size: 3rem;
+        }
+      }
+    }
+  }
+  main {
+    .send-receive-tabs-content {
+      span {
+        &.bordered {
+          width: 100% !important;
+        }
+      }
+      .button {
+        width: 100% !important;
+      }
+    }
+  }
+
+}
+
+@media (max-width: 992px) {
+
+  main {
+    .send-receive-tabs-content {
+      span.bordered {
+        width: 96% !important;
+        overflow: auto;
+      }
+      .col-sm-12 {
+        span.bordered {
+          width: 75% !important;
+          overflow: auto;
+        }
+      }
+    }
+
+    .button {
+      margin-bottom: 10px;
+    }
+
+    .send-crypto {
+      .input-group {
+        .input {
+          &.bordered {
+            font-size: 2.9rem;
+            width: 100% !important;
+          }
+        }
+      }
+    }
+
+    .nav-tabs {
+      text-align: center;
+    }
+
+    .portfolio-div {
+      text-align: center;
+      > span {
+        float: none !important;
+        display: block;
+      }
+    }
+
+  }
+
+  .input-group {
+    .slider-container {
+      width: 100% !important;
+      margin: 32px 0 !important;
+    }
+    button {
+      &.send-rebl-eth {
+        width: 100% !important;
+      }
+    }
+  }
+  .send-crypto {
+    .help-block {
+      &.gas-info {
+        width: 100% !important;
+        text-align: center !important;
+      }
+    }
+  }
+}
+
 main {
   position: relative;
-  top: rem(-100);
+  min-height: 100%;
+  margin-top: calc(-3.04vw - 31.5px) !important;
   font-size: 20px;
   text-transform: uppercase;
   padding-bottom: 20px;
   overflow: hidden;
+
   .select-open-method {
     .button {
-      &:nth-of-type(2) {
-        margin: 0 5rem;
+      &:not(:last-of-type) {
+        margin-right: 2rem;
       }
     }
   }
@@ -201,19 +309,24 @@ main {
     padding-left: 8.5rem;
     position: relative;
   }
+  .ledger-logo{
+    padding-top: 25px;
+    padding-bottom: 25px;
+  }
   .nav {
     > li {
       > a {
-        padding: 2px 55px 4px 55px;
+        padding: 4px 55px 2px 55px;
         background-color: $main_c;
       }
     }
   }
   .nav-tabs {
     border-bottom: 0;
-    position: relative;
-    left: 46px;
     > li {
+      display: inline-block;
+      float: initial;
+      margin-left: -4px;
       > a {
         -webkit-border-radius: 0;
         -moz-border-radius: 0;
@@ -243,7 +356,14 @@ main {
       }
     }
   }
+  .send-rebl-wrapper {
+    padding-top: 20px;
+  }
+  .send-eth-wrapper {
+    padding-top: 20px;
+  }
   .send-receive-tabs-content {
+    padding-top: 20px;
     span {
       &.bordered {
         display: inline-block;
@@ -260,7 +380,14 @@ main {
       width: 75%;
     }
   }
+  .send-receive-tabs {
+    margin-top: -4px;
+    li {
+      border-bottom: 2px solid white;
+    }
+  }
   .walletInput {
+    padding-bottom: 30px;
     .div-center {
       width: 590px;
     }
@@ -295,6 +422,9 @@ main {
         display: inline-block;
         width: auto;
         padding-left: 45px;
+        &.visible-sm {
+          padding-left: 28px;
+        }
       }
       &.gas-info {
         display: inline-block;
@@ -320,10 +450,27 @@ main {
       background-color: $main_c;
     }
   }
+  .input-group {
+    .slider-container {
+      display: inline-block;
+      width: 75%;
+      margin-right: -4px;
+      .rebl-slider {
+        width: 100%;
+        margin: 0;
+      }
+    }
+    button {
+      &.send-rebl-eth {
+        width: 25%;
+      }
+    }
+  }
   .slider-container {
     display: block;
     width: 92%;
     margin: 0 auto;
+    padding: 0 2.5% 0 1.5%;
     .rebl-slider {
       float: left;
       width: 70.67%;
@@ -347,6 +494,93 @@ main {
     }
   }
   .modal {
+    &.choose-wallet {
+
+      > .modal-dialog {
+        width: 90%;
+        margin: 5%;
+        bottom: 0;
+        position: absolute;
+      }
+      .modal-content {
+        width: 100%;
+        .wallets-list {
+          width: 100%;
+        }
+        .modal-header {
+          background-color: $main_c;
+          color: #FFF;
+          margin-top: 15px;
+          .modal-title {
+            font-size: 20px;
+          }
+        }
+        .modal-body {
+          padding: 0;
+          table {
+            thead {
+              th:first-child {
+                padding-left: 50px;
+              }
+            }
+            tbody {
+
+              td:first-child {
+                padding-left: 15px;
+              }
+              tr {
+                box-shadow: 0 0px 3px 3px #dadada inset;
+                border-bottom: 4px solid #FFF;
+                border-top: 4px solid #FFF;
+                td {
+                  padding: 3px 10px 7px 5px;
+                  input[type=radio] {
+                    display: none;
+                  }
+                  label {
+                    text-transform: none;
+                  }
+                  label:before {
+                    vertical-align: middle;
+                    content: "";
+                    display: inline-block;
+                    width: 22px;
+                    height: 22px;
+                    margin-right: 10px;
+                    left: 0;
+                    bottom: 1px;
+                    background-color: #ffffff;
+                    border: 1px solid #00abb2;
+                    border-radius: 50%;
+                  }
+
+                  input[type=radio]:checked + label:before {
+                    background-color: #00abb2;
+                  }
+                }
+              }
+            }
+          }
+          .more-back-wrapper {
+            margin-left: 20px;
+            a {
+              text-decoration: underline;
+              cursor: pointer;
+              margin: 5px;
+            }
+          }
+        }
+
+        .modal-footer {
+          &.text-right {
+            text-align: right;
+            border: none;
+
+          }
+        }
+      }
+
+    }
     .slider-container {
       display: block;
       width: 92%;
@@ -357,5 +591,25 @@ main {
         margin: 34px 0;
       }
     }
+    &.fade {
+      background-color: rgba(0, 190, 200, 0.65);
+    }
   }
+  .txidLink, .address-to-send {
+    text-transform: none;
+  }
+}
+
+.toast-message {
+  font-size: 1.5rem;
+}
+
+.ledger-image {
+  max-width: 240px;
+}
+
+.create-wallet {
+  position: absolute;
+  top: 0;
+  left: 0;
 }

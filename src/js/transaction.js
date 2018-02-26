@@ -1,5 +1,6 @@
-let Tx = require('ethereumjs-tx');
-let config = require('../config');
+import Tx from 'ethereumjs-tx';
+import config from '../config';
+import PromiEvent from 'web3-core-promievent';
 
 let web3;
 
@@ -16,10 +17,30 @@ let contract;
 
 class Transaction {
 
-  constructor(wallet, web3Instance, contractInstance) {
+  constructor(wallet, web3Instance, contractInstance, ledgerWallet = false) {
     this.wallet = wallet;
     web3 = web3Instance;
     contract = contractInstance;
+    this.useLedger = false;
+    if (ledgerWallet && ledgerWallet.address) {
+      this.ledgerWallet = ledgerWallet;
+      this.useLedger = true;
+    }
+  }
+
+  sign(tx) {
+    return new Promise((resolve, reject) => {
+      if (this.useLedger) {
+        this.ledgerWallet.signRawTransaction(tx).then(signedTransaction => {
+          resolve(signedTransaction);
+        }).catch(err => {
+          reject(err);
+        })
+      } else {
+        tx.sign(new Buffer(this.wallet.privateKey.replace(/^0x/, ''), 'hex'));
+        resolve(tx.serialize());
+      }
+    });
   }
 
   estimateFeeForTokens(address, tokensAmount) {
@@ -31,14 +52,15 @@ class Transaction {
         let rawTx = {
           nonce: nonce,
           from: this.wallet.address,
-          gasLimit: config.gasLimitFor['rebl'],
           to: contractAddress,
           data: encodedAbi
         };
-
-        web3.eth.getGasPrice().then(gasPrice => {
-          rawTx.gasPrice = gasPrice.toString();
-          resolve(rawTx);
+        this.getGasLimit(rawTx, 'rebl').then(gasLimit=> {
+          rawTx.gasLimit = gasLimit;
+          web3.eth.getGasPrice().then(gasPrice => {
+            rawTx.gasPrice = gasPrice.toString();
+            resolve(rawTx);
+          });
         });
       }).catch(err => {
         reject(err);
@@ -52,14 +74,15 @@ class Transaction {
         let rawTx = {
           nonce: nonce,
           from: this.wallet.address,
-          gasLimit: config.gasLimitFor['eth'],
           to: address,
           value: web3.utils.toWei(amount, 'ether')
         };
-
-        web3.eth.getGasPrice().then(gasPrice => {
-          rawTx.gasPrice = gasPrice.toString();
-          resolve(rawTx);
+        this.getGasLimit(rawTx, 'eth').then(gasLimit=> {
+          rawTx.gasLimit = gasLimit;
+          web3.eth.getGasPrice().then(gasPrice => {
+            rawTx.gasPrice = gasPrice.toString();
+            resolve(rawTx);
+          });
         });
       }).catch(err => {
         reject(err);
@@ -77,14 +100,16 @@ class Transaction {
         let rawTx = {
           nonce: nonce,
           from: this.wallet.address,
-          gasLimit: config.gasLimitFor['rebl'],
           to: contractAddress,
           data: encodedAbi
         };
+        this.getGasLimit(rawTx, 'eth').then(gasLimit=> {
+          rawTx.gasLimit = gasLimit;
 
-        web3.eth.getGasPrice().then(gasPrice => {
-          rawTx.gasPrice = gasPrice.toString();
-          resolve(rawTx);
+          web3.eth.getGasPrice().then(gasPrice => {
+            rawTx.gasPrice = gasPrice.toString();
+            resolve(rawTx);
+          });
         });
       }).catch(err => {
         reject(err);
@@ -100,7 +125,7 @@ class Transaction {
    */
   static checkNonce(nonce) {
     let currentNonce = localStorage.getItem('currentNonce');
-    if(!currentNonce || currentNonce < nonce) {
+    if (!currentNonce || currentNonce < nonce) {
       localStorage.setItem('currentNonce', nonce);
       currentNonce = nonce;
     } else {
@@ -116,33 +141,42 @@ class Transaction {
    * @param gasPrice
    */
   sendTokens(address, tokensAmount, gasPrice = config.defaultGasPrice) {
-    return new Promise((resolve, reject) => {
-      let transfer = contract.methods.transfer(address, tokensAmount);
-      let encodedAbi = transfer.encodeABI();
+    let promiEvent = new PromiEvent();
+    let transfer = contract.methods.transfer(address, tokensAmount);
+    let encodedAbi = transfer.encodeABI();
 
-      web3.eth.getTransactionCount(this.wallet.address).then(nonce => {
-        let rawTx = {
-          nonce: web3.utils.numberToHex(Transaction.checkNonce(nonce)),
-          from: this.wallet.address,
-          gasLimit: web3.utils.numberToHex(config.gasLimitFor['rebl']),
-          gasPrice: web3.utils.numberToHex(web3.utils.toWei(gasPrice.toString(), 'gwei')),
-          to: contractAddress,
-          data: encodedAbi
-        };
+    web3.eth.getTransactionCount(this.wallet.address).then(nonce => {
+      let rawTx = {
+        nonce: web3.utils.numberToHex(Transaction.checkNonce(nonce)),
+        from: this.wallet.address,
+        gasPrice: web3.utils.numberToHex(web3.utils.toWei(gasPrice.toString(), 'gwei')),
+        to: contractAddress,
+        data: encodedAbi,
+      };
+
+
+      this.getGasLimit(rawTx, 'rebl').then(gasLimit=> {
+        rawTx.gasLimit = web3.utils.numberToHex(gasLimit);
         let tx = new Tx(rawTx);
-        tx.sign(new Buffer(this.wallet.privateKey.replace(/^0x/, ''), 'hex'));
-        let serializedTx = tx.serialize();
-        web3.eth.sendSignedTransaction('0x'+serializedTx.toString('hex'))
-          .on('transactionHash', (res) => {
-            resolve(res);
-          })
-          .on('error', (e) => {
-            reject(e);
-          });
-      }).catch(err => {
-        reject(err);
-      });
+        this.sign(tx).then(serializedTx => {
+          web3.eth.sendSignedTransaction('0x' + serializedTx.toString('hex'))
+            .on('transactionHash', (transactionHash) => {
+              promiEvent.eventEmitter.emit('transactionHash', transactionHash);
+            })
+            .on('receipt', (res) => {
+              promiEvent.resolve(res);
+            })
+            .on('error', (err) => {
+              promiEvent.reject(err);
+            });
+        }).catch(err => {
+          promiEvent.reject(err);
+        });
+      })
+    }).catch(err => {
+      promiEvent.reject(err);
     });
+    return promiEvent.eventEmitter;
   }
 
   /**
@@ -153,31 +187,39 @@ class Transaction {
    * @returns {Promise}
    */
   sendEther(address, amount, gasPrice = config.defaultGasPrice) {
-    return new Promise((resolve, reject) => {
-
+    let promiEvent = new PromiEvent();
       web3.eth.getTransactionCount(this.wallet.address).then(nonce => {
         let rawTx = {
           nonce: web3.utils.numberToHex(Transaction.checkNonce(nonce)),
           from: this.wallet.address,
           gasPrice: web3.utils.numberToHex(web3.utils.toWei(gasPrice.toString(), 'gwei')),
-          gasLimit: web3.utils.numberToHex(config.gasLimitFor['eth']),
           to: address,
           value: web3.utils.numberToHex(web3.utils.toWei(amount.toString(), 'ether'))
         };
-        let tx = new Tx(rawTx);
-        tx.sign(new Buffer(this.wallet.privateKey.replace(/^0x/, ''), 'hex'));
-        let serializedTx = tx.serialize();
-        web3.eth.sendSignedTransaction('0x'+serializedTx.toString('hex'))
-          .on('transactionHash', (res) => {
-            resolve(res);
-          })
-          .on('error', (e) => {
-            reject(e);
+
+        this.getGasLimit(rawTx, 'eth').then(gasLimit=> {
+
+          rawTx.gasLimit = web3.utils.numberToHex(gasLimit);
+          let tx = new Tx(rawTx);
+          this.sign(tx).then(serializedTx => {
+            web3.eth.sendSignedTransaction('0x' + serializedTx.toString('hex'))
+              .on('transactionHash', (transactionHash) => {
+                promiEvent.eventEmitter.emit('transactionHash', transactionHash);
+              })
+              .on('receipt', (res) => {
+                promiEvent.resolve(res);
+              })
+              .on('error', (e) => {
+                promiEvent.reject(e);
+              });
+          }).catch(err => {
+            promiEvent.reject(err);
           });
-      }).catch(err => {
-        reject(err);
+        }).catch(err => {
+          promiEvent.reject(err);
+        });
       });
-    });
+    return promiEvent.eventEmitter;
   }
 
   /**
@@ -186,35 +228,63 @@ class Transaction {
    * @return {Promise}
    */
   mint(gasPrice = config.defaultGasPrice) {
-    return new Promise((resolve, reject) => {
-      let mint = contract.methods.mint();
-      let encodedAbi = mint.encodeABI();
+    let promiEvent = new PromiEvent();
+    let mint = contract.methods.mint();
+    let encodedAbi = mint.encodeABI();
 
-      web3.eth.getTransactionCount(this.wallet.address).then(nonce => {
-        let rawTx = {
-          nonce: web3.utils.numberToHex(Transaction.checkNonce(nonce)),
-          from: this.wallet.address,
-          gasPrice: web3.utils.numberToHex(web3.utils.toWei(gasPrice.toString(), 'gwei')),
-          gasLimit: web3.utils.numberToHex(config.gasLimitFor['mint']),
-          to: contractAddress,
-          data: encodedAbi
-        };
+    web3.eth.getTransactionCount(this.wallet.address).then(nonce => {
+      let rawTx = {
+        nonce: web3.utils.numberToHex(Transaction.checkNonce(nonce)),
+        from: this.wallet.address,
+        gasPrice: web3.utils.numberToHex(web3.utils.toWei(gasPrice.toString(), 'gwei')),
+        to: contractAddress,
+        data: encodedAbi
+      };
+      this.getGasLimit(rawTx, 'mint').then(gasLimit => {
+        rawTx.gasLimit = web3.utils.numberToHex(gasLimit);
         let tx = new Tx(rawTx);
-        tx.sign(new Buffer(this.wallet.privateKey.replace(/^0x/, ''), 'hex'));
-
-        let serializedTx = tx.serialize();
-        web3.eth.sendSignedTransaction('0x'+serializedTx.toString('hex'))
-          .on('transactionHash', (res) => {
-            resolve(res);
-          })
-          .on('error', (e) => {
-            reject(e);
-          });
-      }).catch(err => {
-        reject(err);
+        this.sign(tx).then(serializedTx => {
+          web3.eth.sendSignedTransaction('0x' + serializedTx.toString('hex'))
+            .on('transactionHash', (transactionHash) => {
+              promiEvent.eventEmitter.emit('transactionHash', transactionHash);
+            })
+            .on('receipt', (res) => {
+              promiEvent.resolve(res);
+            })
+            .on('error', (err) => {
+              promiEvent.reject(err);
+            });
+        }).catch(err => {
+          promiEvent.reject(err);
+        });
       });
+    }).catch(err => {
+      promiEvent.reject(err);
     });
+    return promiEvent.eventEmitter;
   }
+
+  getGasLimit(rawTx, type) {
+    return new Promise((resolve, reject) => {
+      if (type === 'eth') {
+        resolve(config.gasLimitFor['eth']);
+      }
+      else {
+        web3.eth.estimateGas(rawTx).then(gasLimit => {
+          if (gasLimit > 0) {
+            resolve(gasLimit);
+          }
+          else {
+            resolve(config.gasLimitFor[type]);
+          }
+        }).catch(err => {
+          resolve(config.gasLimitFor[type]);
+        });
+      }
+    });
+
+  }
+
 }
 
 module.exports = Transaction;

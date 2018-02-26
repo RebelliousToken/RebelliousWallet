@@ -27,8 +27,9 @@ function createWindow () {
 
   mainWindow.webContents.session.clearCache(() => {});
 
-  mainWindow.setResizable(false);
-  mainWindow.setFullScreenable(false);
+  mainWindow.setResizable(true);
+  mainWindow.setFullScreenable(true);
+  mainWindow.setMinimumSize(700, 400);
 
   // and load the index.html of the app.
   mainWindow.loadURL(url.format({
@@ -51,7 +52,7 @@ function createWindow () {
   // Create the Application's main menu
   let template = [{
     label: "Application",
-  submenu: [
+    submenu: [
       { label: "About Application", selector: "orderFrontStandardAboutPanel:" },
       { type: "separator" },
       { label: "Quit", accelerator: "Command+Q", click: function() { app.quit(); }}
