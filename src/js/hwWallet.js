@@ -1,4 +1,5 @@
 class HwWallet {
+
   constructor(address, dPath, index) {
     this.address = address;
     this.dPath = dPath;

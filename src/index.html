@@ -15,14 +15,13 @@
 
 <header class="container-fluid">
   <div class="row">
-
-    <div class="text-center">
-      <img src="images/logo.png" width="100%">
+    <div class="text-center header">
+      <img src="images/logo.png" width="100%" class="header-logo">
       <div class="select-open-method create-wallet">
         <button class="button button-small top-info" onclick="OpenMyEtherWallet();">Create New Wallet</button>
       </div>
       <span class="about top link" data-toggle="modal"
-            data-target="#aboutmodal">About the REBL wallet v0.0.3</span>
+          data-target="#aboutmodal">About the REBL wallet v0.0.4</span>
       <span class="about top" id="refresh"><img src="images/refresh.png"></span>
       <div class="drag-line"></div>
     </div>
@@ -33,16 +32,20 @@
 
   <div class="select-open-method">
     <div class="row">
-      <div class="col-md-4 col-sm-4 col-xs-12 text-center">
+      <div class="col-md-3 col-sm-12 col-xs-12 text-center">
         <button class="button" onclick="UseKeystore();">Use Keystore JSON</button>
       </div>
 
-      <div class="col-md-4 col-sm-4 col-xs-12 text-center">
+      <div class="col-md-3 col-sm-12 col-xs-12 text-center">
         <button class="button" onclick="UsePrivateKey();">Use Private Key</button>
       </div>
 
-      <div class="col-md-4 col-sm-4 col-xs-12 text-center">
+      <div class="col-md-3 col-sm-12 col-xs-12 text-center">
         <button class="button" onclick="UseLedgerNanoS();">Use Ledger Nano S</button>
+      </div>
+
+      <div class="col-md-3 col-sm-12 col-xs-12 text-center">
+        <button class="button" onclick="UseTrezor();">Use Trezor</button>
       </div>
     </div>
   </div>
@@ -97,23 +100,31 @@
             <button type="button" class="button" onclick="UpdateAvailableETH();showSend('eth');">
               Send ETH
             </button>
-
           </div>
         </div>
-        <br>
-        <div class="portfolio-div">
-          <span class="portfolio pull-left">
-            *expected reward in rebl.
-          </span>
-
-          <span class="portfolio pull-right">
-            TOTAL value (rebl+eth) reward excluded us dollars: $<span id="portfolioTotal">0.00</span>
-          </span>
+        <div class="row">
+          <div class="container">
+            <div class="col-xs-12 col-md-4 text-left">
+              <span class="portfolio pull-left">
+                *expected reward in rebl
+              </span>
+            </div>
+            <div class="col-xs-12 col-md-4 text-center">
+              <span class="portfolio pull-left help-reward-link" onclick="OpenHelpRewardPage();">
+                Problems claiming your reward? Click here for more information
+              </span>
+            </div>
+            <div class="col-xs-12 col-md-4 text-right">
+              <span class="portfolio pull-right">
+                TOTAL (rebl+eth) reward excluded: $<span id="portfolioTotal">0.00</span>
+              </span>
+            </div>
+          </div>
         </div>
       </div>
       <div id="receive" class="tab-pane fade text-center">
         <h2>your rebl address</h2>
-        <span class="myaddress bordered" onclick="CopyAddress();">0x</span>
+          <span class="myaddress bordered" onclick="CopyAddress();">0x</span>
       </div>
     </div>
   </div>
@@ -266,6 +277,16 @@
 
         </div>
       </div>
+
+      <div id="trezor" class="hidden">
+         <div class="text-center">
+            <p>TREZOR WALLET<br>
+              <span class="text-colored">MAKE SURE YOUR TREZOR IS PLUGGED IN</span>
+            </p>
+            <div class="trezor-logo"><img class="trezor-image" src="images/trezor.png"></div>
+            <button class="button" onclick="ConnectTrezor();">Connect to Trezor</button>
+         </div>
+      </div>
     </div>
   </div>
 
@@ -300,7 +321,7 @@
     <div class="modal-dialog" role="document">
       <div class="modal-content">
         <div class="modal-header">
-          <h4 class="modal-title" id="aboutWalletLabel">About REBL Wallet v0.0.3</h4>
+          <h4 class="modal-title" id="aboutWalletLabel">About REBL Wallet v0.0.4</h4>
         </div>
         <div class="modal-body text-center text-colored">
           <p>
@@ -373,7 +394,6 @@
     </div>
   </div>
 
-
   <div class="modal fade" id="rewardModal" tabindex="-1" role="dialog" aria-labelledby="rewardModalLabel">
     <div class="modal-dialog" role="document">
       <div class="modal-content">
@@ -422,13 +442,55 @@
     </div>
   </div>
 
+  <div class="modal fade choose-wallet" id="chooseTrezorWallet" tabindex="-1" role="dialog" aria-labelledby="chooseTrezorWallet">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-header text-center">
+          <span class="modal-title">PLEASE SELECT THE ADDRESS YOU WOULD LIKE TO INTERACT WITH (TREZOR)</span>
+        </div>
+        <div class="modal-body">
+          <table class="trezor-wallets-list">
+            <thead>
+            <tr>
+              <th>YOUR ADDRESS</th>
+              <th>Balance</th>
+              <th>Token balances</th>
+            </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+          <div class="more-back-wrapper">
+            <a id="less-trezor-wallets">Back</a>
+            <a id="more-trezor-wallets">MORE ADDRESSES</a>
+          </div>
+        </div>
+        <div class="modal-footer text-right">
+          <button type="button" class="button" data-dismiss="modal">Cancel</button>
+          <button type="button" class="button" id="open-trezor-wallet" data-dismiss="modal" disabled>UNLOCK YOUR WALLET</button>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade choose-wallet" id="updateInfo" tabindex="-1" role="dialog" aria-labelledby="updateInfo">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-body" id="updateInfoBody">
+        </div>
+        <div class="modal-footer text-right">
+          <button type="button" class="button" data-dismiss="modal">Close</button>
+
+        </div>
+      </div>
+    </div>
+  </div>
 
 </main>
 
 <footer>
-  <span class="about bottom" data-toggle="modal" data-target="#aboutmodal">About the REBL wallet v0.0.3</span>
+  <span class="about bottom" data-toggle="modal" data-target="#aboutmodal">About the REBL wallet v0.0.4</span>
 </footer>
-
 
 </body>
 

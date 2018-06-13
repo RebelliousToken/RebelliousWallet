@@ -19,7 +19,6 @@ class LedgerWallet extends HwWallet {
       this.ethApp
         .signTransaction_async(this.getPath(), t.serialize().toString('hex'))
         .then(result => {
-          console.log(result);
           const strTx = getTransactionFields(t);
           const txToSerialize = Object.assign(strTx, {
             v: addHexPrefix(result.v),

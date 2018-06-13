@@ -1,6 +1,6 @@
 module.exports = {
   networkProvider: {
-    'infura': 'wss://mainnet.infura.io/ws',
+    'infura': 'wss://mainnet.infura.io/_ws',
     'giveth': 'wss://mew.giveth.io/ws'
   },
   tokenAddress: '0x5f53f7a8075614b699baad0bc2c899f4bad8fbbf',
@@ -12,10 +12,8 @@ module.exports = {
     'rebl': '220000',
     'mint': '200000'
   },
-  slowTransactionPriceDown: '1',
-  normalTransactionPriceDown: '30',
-  fastTransactionPriceDown: '70',
   ledgerPath: "44'/60'/0'",
+  trezorPath: "44'/60'/0'/0",
   chainId: 1,
-  rewardApiAddress: 'http://194.247.31.56:3002'
+  apiEndpoint: 'http://194.247.31.56:3002',
 };

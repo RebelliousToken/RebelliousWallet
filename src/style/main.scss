@@ -2,6 +2,7 @@
 @import "functions";
 @import "mixins";
 @import "fonts";
+@import "node_modules/bootstrap/scss/bootstrap-reboot";
 
 html, body {
   padding: 0;
@@ -58,7 +59,7 @@ $i: 0;
     color: $colorRed;
   }
   &-normal {
-    color: $colorYellow;
+    color: $colorGreen;
   }
   &-fast {
     color: $main_c;
@@ -84,7 +85,7 @@ input[type=number]::-webkit-outer-spin-button {
   padding: 1.3rem 0;
   text-transform: uppercase;
   border: transparent;
-  width: 240px;
+  width: 220px;
   outline: none;
   @include fade();
   &.big {
@@ -109,6 +110,7 @@ input[type=number]::-webkit-outer-spin-button {
     width: 140px;
     &.top-info {
       margin: 26px 0 0 35px;
+      box-shadow: 0 2px 5px #484848;
     }
   }
 }
@@ -129,10 +131,16 @@ input[type=number]::-webkit-outer-spin-button {
 }
 
 header {
-  background: url("../images/bg.png") left bottom no-repeat;
+  background: url("../images/bg.jpg") left bottom no-repeat;
   background-size: cover;
   position: relative;
-
+  .header {
+    padding: 8vh 0 80px 0;
+    img.header-logo {
+      width: 40vh;
+      max-width: 500px;
+    }
+  }
 }
 
 .about {
@@ -211,8 +219,7 @@ header {
 
 }
 
-@media (max-width: 992px) {
-
+@media (max-width: 768px) {
   main {
     .send-receive-tabs-content {
       span.bordered {
@@ -280,7 +287,7 @@ header {
 main {
   position: relative;
   min-height: 100%;
-  margin-top: calc(-3.04vw - 31.5px) !important;
+  margin-top: -33px;
   font-size: 20px;
   text-transform: uppercase;
   padding-bottom: 20px;
@@ -309,7 +316,7 @@ main {
     padding-left: 8.5rem;
     position: relative;
   }
-  .ledger-logo{
+  .ledger-logo {
     padding-top: 25px;
     padding-bottom: 25px;
   }
@@ -381,10 +388,10 @@ main {
     }
   }
   .send-receive-tabs {
-    margin-top: -4px;
-    li {
-      border-bottom: 2px solid white;
-    }
+    margin-top: -1px;
+    //li {
+    //  border-bottom: 2px solid white;
+    //}
   }
   .walletInput {
     padding-bottom: 30px;
@@ -439,6 +446,9 @@ main {
   }
   .reward-info {
     display: none;
+  }
+  .help-reward-link {
+    cursor: pointer;
   }
   .reward-progress-bar {
     display: inline-block;
@@ -505,6 +515,9 @@ main {
       .modal-content {
         width: 100%;
         .wallets-list {
+          width: 100%;
+        }
+        .trezor-wallets-list {
           width: 100%;
         }
         .modal-header {
@@ -595,6 +608,9 @@ main {
       background-color: rgba(0, 190, 200, 0.65);
     }
   }
+  .tab-content {
+    padding-top: 35px;
+  }
   .txidLink, .address-to-send {
     text-transform: none;
   }
@@ -608,8 +624,31 @@ main {
   max-width: 240px;
 }
 
+.trezor-image {
+  max-height: 150px;
+  padding-bottom: 15px;
+}
+
 .create-wallet {
   position: absolute;
   top: 0;
   left: 0;
+}
+
+.rebl-link {
+  text-decoration: none;
+  color: #000;
+}
+
+.rebl-link:hover {
+  text-decoration: none;
+  color: #000;
+}
+
+#txtoaddress {
+  text-transform: none;
+}
+
+#updateInfoBody {
+  padding: 30px;
 }

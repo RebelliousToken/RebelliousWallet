@@ -16,15 +16,20 @@ const contractAddress = config.tokenAddress;
 let contract;
 
 class Transaction {
-
-  constructor(wallet, web3Instance, contractInstance, ledgerWallet = false) {
+  constructor(wallet, web3Instance, contractInstance, ledgerWallet = false, trezorWallet = false) {
     this.wallet = wallet;
     web3 = web3Instance;
     contract = contractInstance;
     this.useLedger = false;
+    this.useTrezor = false;
+
     if (ledgerWallet && ledgerWallet.address) {
       this.ledgerWallet = ledgerWallet;
       this.useLedger = true;
+    }
+    else if (trezorWallet && trezorWallet.address) {
+      this.trezorWallet = trezorWallet;
+      this.useTrezor = true;
     }
   }
 
@@ -36,7 +41,14 @@ class Transaction {
         }).catch(err => {
           reject(err);
         })
-      } else {
+      } else if (this.useTrezor) {
+        this.trezorWallet.signRawTransaction(tx).then(signedTransaction => {
+          resolve(signedTransaction);
+        }).catch(err => {
+          reject(err);
+        })
+      }
+      else {
         tx.sign(new Buffer(this.wallet.privateKey.replace(/^0x/, ''), 'hex'));
         resolve(tx.serialize());
       }
@@ -154,7 +166,6 @@ class Transaction {
         data: encodedAbi,
       };
 
-
       this.getGasLimit(rawTx, 'rebl').then(gasLimit=> {
         rawTx.gasLimit = web3.utils.numberToHex(gasLimit);
         let tx = new Tx(rawTx);
@@ -188,37 +199,38 @@ class Transaction {
    */
   sendEther(address, amount, gasPrice = config.defaultGasPrice) {
     let promiEvent = new PromiEvent();
-      web3.eth.getTransactionCount(this.wallet.address).then(nonce => {
-        let rawTx = {
-          nonce: web3.utils.numberToHex(Transaction.checkNonce(nonce)),
-          from: this.wallet.address,
-          gasPrice: web3.utils.numberToHex(web3.utils.toWei(gasPrice.toString(), 'gwei')),
-          to: address,
-          value: web3.utils.numberToHex(web3.utils.toWei(amount.toString(), 'ether'))
-        };
+    web3.eth.getTransactionCount(this.wallet.address).then(nonce => {
 
-        this.getGasLimit(rawTx, 'eth').then(gasLimit=> {
+      let rawTx = {
+        nonce: web3.utils.numberToHex(Transaction.checkNonce(nonce)),
+        from: this.wallet.address,
+        gasPrice: web3.utils.numberToHex(web3.utils.toWei(gasPrice.toString(), 'gwei')),
+        to: address,
+        value: web3.utils.numberToHex(web3.utils.toWei(amount.toString(), 'ether'))
+      };
+      this.getGasLimit(rawTx, 'eth').then(gasLimit=> {
 
-          rawTx.gasLimit = web3.utils.numberToHex(gasLimit);
-          let tx = new Tx(rawTx);
-          this.sign(tx).then(serializedTx => {
-            web3.eth.sendSignedTransaction('0x' + serializedTx.toString('hex'))
-              .on('transactionHash', (transactionHash) => {
-                promiEvent.eventEmitter.emit('transactionHash', transactionHash);
-              })
-              .on('receipt', (res) => {
-                promiEvent.resolve(res);
-              })
-              .on('error', (e) => {
-                promiEvent.reject(e);
-              });
-          }).catch(err => {
-            promiEvent.reject(err);
-          });
+        rawTx.gasLimit = web3.utils.numberToHex(gasLimit);
+        let tx = new Tx(rawTx);
+        this.sign(tx).then(serializedTx => {
+
+          web3.eth.sendSignedTransaction('0x' + serializedTx.toString('hex'))
+            .on('transactionHash', (transactionHash) => {
+              promiEvent.eventEmitter.emit('transactionHash', transactionHash);
+            })
+            .on('receipt', (res) => {
+              promiEvent.resolve(res);
+            })
+            .on('error', (e) => {
+              promiEvent.reject(e);
+            });
         }).catch(err => {
           promiEvent.reject(err);
         });
+      }).catch(err => {
+        promiEvent.reject(err);
       });
+    });
     return promiEvent.eventEmitter;
   }
 
@@ -282,9 +294,7 @@ class Transaction {
         });
       }
     });
-
   }
-
 }
 
 module.exports = Transaction;

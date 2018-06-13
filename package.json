@@ -1,6 +1,6 @@
 {
   "name": "rebl-wallet",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "An Ethereum wallet for Rebellious token",
   "author": "Rebellious <info@rebellious.io>",
   "main": "src/main.js",
@@ -30,7 +30,8 @@
     "linux": {
       "target": [
         "deb",
-        "rpm"
+        "rpm",
+        "AppImage"
       ],
       "icon": "src/build/icons/512x512.png"
     },
