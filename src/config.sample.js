@@ -16,4 +16,6 @@ module.exports = {
   trezorPath: '44\'/1\'/0\'/0',
   chainId: 4,
   apiEndpoint: 'http://127.0.0.1:3001',
+  etherscanApiAddress: 'http://rinkeby.etherscan.io/api',
+  etherscanApiKey: '2KATICYAUMBRDBJITIX43C95NJKTN876XP'
 };

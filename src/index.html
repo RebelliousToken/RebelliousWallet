@@ -55,6 +55,7 @@
       <ul class="nav nav-tabs m-l-35">
         <li class="active"><a data-toggle="tab" href="#send" onclick="goBack(this);">Send</a></li>
         <li><a data-toggle="tab" href="#receive" onclick="restoreSend(this);">Receive</a></li>
+        <li><a data-toggle="tab" href="#history" onclick="restoreSend(this);">History</a></li>
       </ul>
     </div>
   </div>
@@ -125,6 +126,21 @@
       <div id="receive" class="tab-pane fade text-center">
         <h2>your rebl address</h2>
           <span class="myaddress bordered" onclick="CopyAddress();">0x</span>
+      </div>
+      <div id="history" class="tab-pane fade text-center">
+        <h2>History</h2>
+        <table class="tx-list">
+          <thead>
+          <tr>
+            <th>#</th>
+            <th></th>
+            <th></th>
+            <th>TX Hash</th>
+          </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <div id="tx-pagination"></div>
       </div>
     </div>
   </div>
