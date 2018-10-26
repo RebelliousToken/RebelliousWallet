@@ -14,13 +14,12 @@ import {TrezorWallet, TREZOR_MINIMUM_FIRMWARE} from './js/trezor.js';
 import {deriveWallets, deriveTrezorWallets} from './js/helpers';
 
 let currentProvider = 'infura';
-let web3 = new Web3(new Web3.providers.WebsocketProvider(config.networkProvider[currentProvider]));
+let web3 = new Web3(new Web3.providers.HttpProvider(config.networkProvider[currentProvider]));
 
 let myWallet;
 
 let contract = new web3.eth.Contract(config.tokenAbi, config.tokenAddress);
 let transaction;
-let txHistoryPage = 1;
 
 let tokenBalance = 0;
 let ethBalance = 0;
@@ -389,7 +388,6 @@ setInterval(() => {
 setInterval(() => {
   if (myWallet) {
     getReward();
-    updateTransactionHistory();
   }
 }, 1200000);
 
@@ -439,7 +437,6 @@ function OpenPrivateKey() {
       SuccessAccess();
       updateBalance();
       UpdatePortfolio();
-      updateTransactionHistory();
     } catch (e) {
       handleError(e, {
         'function': OpenPrivateKey,
@@ -554,7 +551,6 @@ function SuccessAccess() {
   $('.about.top').toggle();
   $('.about.bottom').toggle();
   getReward();
-  updateTransactionHistory();
 }
 
 /**
@@ -674,14 +670,11 @@ function SendEthereum(gasPrice = config.defaultGasPrice) {
         $('#txtype').html('ETH');
         $('#trxsentModal').modal('show');
         updateBalance();
-        updateTransactionHistory();
         ethRecipientAddressField.val('');
         ethAmountField.val('');
       })
       .then(() => {
         toastr.success('You have successfully sent ' + amount + ' ETH to ' + to);
-        setTimeout(updateTransactionHistory, 15000);
-        setTimeout(updateTransactionHistory, 40000);
       })
       .catch(e => {
         handleError(e, {
@@ -905,14 +898,11 @@ function SendToken(gasPrice = config.defaultGasPrice) {
         $('#txtype').html('REBL');
         $('#trxsentModal').modal('show');
         updateBalance();
-        updateTransactionHistory();
         tokenRecipientAddressField.val('');
         tokensAmountField.val('');
       })
       .then(() => {
         toastr.success('You have successfully sent ' + amount + ' REBL to ' + to);
-        setTimeout(updateTransactionHistory, 15000);
-        setTimeout(updateTransactionHistory, 40000);
       })
       .catch(err => {
         handleError(err, {
@@ -1059,7 +1049,6 @@ function openLedgerWallet(address) {
   SuccessAccess();
   updateBalance();
   UpdatePortfolio();
-  updateTransactionHistory();
 }
 
 function openTrezorWallet(address) {
@@ -1070,7 +1059,6 @@ function openTrezorWallet(address) {
   SuccessAccess();
   updateBalance();
   UpdatePortfolio();
-  updateTransactionHistory();
 }
 
 $(() => {
@@ -1178,180 +1166,3 @@ $(() => {
     openTrezorWallet(selectedTrezorWallet.address);
   });
 });
-
-function updateTransactionHistory() {
-  if (myWallet.address) {
-    let address = myWallet.address;
-    let addressTopic = bigNumberToPaddedBytes32(address);
-
-    let url = config.etherscanApiAddress + "?module=account&action=txlist&address=" + address + "&startblock=0&endblock=latest&sort=asc&apikey=" + config.etherscanApiKey;
-    let urlToken = config.etherscanApiAddress + "?module=logs&action=getLogs&fromBlock=1&toBlock=latest"
-      + "&topic2=" + addressTopic
-      + "&apikey=" + config.etherscanApiKey;
-
-    let promiseTransactions = fetch(url, {
-      method: 'get'
-    });
-    let promiseTokenTransactions = fetch(urlToken, {
-      method: 'get'
-    });
-
-    Promise.all([promiseTransactions, promiseTokenTransactions])
-      .then(values => {
-        let jsonTransactions = values[0].json();
-        let jsonTokenTransactions = values[1].json();
-        return Promise.all([jsonTransactions, jsonTokenTransactions]);
-      })
-      .then(jsons => {
-          let txs = EtherScanAgregateLists(jsons, address);
-          EtherScanPrintTxlist(txs);
-        }
-      );
-  }
-}
-
-
-function EtherScanAgregateLists(jsons, address) {
-
-  let list = [];
-  let eth = jsons[0];
-
-  let type, direction;
-
-  for (let tx of eth.result) {
-
-    if (tx.input.indexOf("0xa9059cbb0") == 0) {
-      direction = '<span class="label label-danger label-xs">OUT</span>';
-      type = '<span class="label label-rebl label-xs">REBL</span>';
-    }
-    else if (tx.input == "0x1249c58b") {
-      direction = '';
-      type = '<span class="label label-primary label-xs">mint</span>';
-    }
-    else if (tx.input == "0x") {
-      if (tx.from.toLowerCase() == address.toLowerCase()) {
-        direction = '<span class="label label-danger label-xs">OUT</span>';
-      }
-      else {
-        direction = '<span class="label label-success label-xs">IN</span>';
-      }
-      type = '<span class="label label-warning label-xs">eth</span>';
-    }
-    if (type.length > 0) {
-      list.push({
-        direction: direction, type: type, hash: tx.hash, timestamp: tx.timeStamp
-      });
-    }
-  }
-
-  let tokens = jsons[1];
-  for (let tx of tokens.result) {
-    type = '<span class="label label-rebl label-xs">REBL</span>';
-    direction = '<span class="label label-success label-xs">IN</span>';
-    list.push({
-      direction: direction, type: type, hash: tx.transactionHash, timestamp: tx.timeStamp
-    });
-  }
-  function sortByTimestamp(a, b) {
-    return b.timestamp - a.timestamp;
-  }
-
-  list = list.sort(sortByTimestamp);
-  return list;
-}
-
-
-function bigNumberToPaddedBytes32(num) {
-  let n = num.toString(16).replace(/^0x/, '');
-  while (n.length < 64) {
-    n = "0" + n;
-  }
-  return "0x" + n;
-}
-
-function EtherScanPrintTxlist(txs) {
-
-  let walletsTable = $('.tx-list tbody');
-  walletsTable.html();
-  let list = '';
-  let txsOnPage = 10;
-
-  let pagesCount = parseInt(txs.length / txsOnPage);
-  if ((txs.length / txsOnPage) - pagesCount > 0) {
-    pagesCount++;
-  }
-  if (pagesCount < txHistoryPage) {
-    txHistoryPage = pagesCount;
-  }
-
-  let start = (txHistoryPage - 1) * txsOnPage;
-  let txsPage = txs.slice(start, start + txsOnPage);
-  let index = start;
-
-  for (let tx of txsPage) {
-    let date = new Date(tx.timestamp * 1000);
-    let year = date.getFullYear();
-    let day = "0" + date.getDate();
-    let month = "0" + (date.getMonth() + 1);
-    let hours = "0" + date.getHours();
-    let minutes = "0" + date.getMinutes();
-    let seconds = "0" + date.getSeconds();
-    let formattedTime = year + "/" + month.substr(-2) + "/" + day.substr(-2) + " " + hours.substr(-2) + ':' + minutes.substr(-2) + ':' + seconds.substr(-2);
-
-    list +=
-      '<tr>' +
-      '<td>' + (++index) + '</td>' +
-      '<td>' + tx.direction + '</td>' +
-      '<td><span data-toggle="tooltip" title="' + formattedTime + '">' + tx.type + '</span></td>' +
-      '<td><a class="tx-hash-link" onclick="openLink(\'https://rinkeby.etherscan.io/tx/' + tx.hash + '\')">' + tx.hash + '</a> </td>' +
-      '</tr>'
-  }
-
-  setTxPaginator(pagesCount);
-  walletsTable.html(list);
-  $("[data-toggle='tooltip']").tooltip();
-
-}
-
-
-function setTxPaginator(pagesCount) {
-  let paginator = "";
-
-  let paginatorArr = [];
-  paginatorArr[1] = 1;
-  paginatorArr[2] = 2;
-  paginatorArr[3] = 3;
-
-  paginatorArr[txHistoryPage - 1] = txHistoryPage - 1;
-  paginatorArr[txHistoryPage] = txHistoryPage;
-  paginatorArr[txHistoryPage + 1] = txHistoryPage + 1;
-
-  paginatorArr[pagesCount - 2] = pagesCount - 2;
-  paginatorArr[pagesCount - 1] = pagesCount - 1;
-  paginatorArr[pagesCount] = pagesCount;
-
-
-  for (let page of paginatorArr) {
-    if (page != undefined && page > 0 && page <= pagesCount) {
-      if (page > 1 && paginatorArr[page - 1] == undefined) {
-        paginator += "<span> ... </span>";
-      }
-      if (page == txHistoryPage) {
-        paginator += "<span class='btn btn-default active'>" + page + "</span> ";
-      }
-      else {
-        paginator += "<span onclick='setTxPage(" + page + ")' class='btn btn-default'>" + page + "</span> ";
-      }
-    }
-  }
-
-  $("#tx-pagination").html(paginator);
-}
-
-function setTxPage(value) {
-  if (value <= 0) {
-    value = 1;
-  }
-  txHistoryPage = value;
-  updateTransactionHistory();
-}
